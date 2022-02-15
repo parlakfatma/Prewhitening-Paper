@@ -1,0 +1,151 @@
+---
+title: "3_visualize_ar6c_FP"
+author: "fatma parlak"
+date: "2/10/2022"
+output: html_document
+---
+
+
+
+```{r}
+# dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/5_Updated_masters_thesis/code"
+dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
+# dat <- readRDS(file.path(dir_project, "ar6cLMM_FP.rds"))
+# dat_ <- readRDS(file.path(dir_project, "ar6c.rds"))
+
+
+# Where the AC results were saved
+# dir_ac1 <- file.path(dir_project, "AC1")
+# dir_agg <- file.path(dir_project, "AC1_agg")
+dir_lm <- file.path(dir_project, "AC1_lm2")
+dir_plt <- file.path(dir_project, "AC1_ar6c_plots")
+
+
+# Setup ---------------------------------------------------------------------------------
+
+# Packages
+## `lme4`: multilevel modeling
+# library(lme4)
+# stopifnot(packageVersion("lme4") >= "1.1.26")
+## CIFTI
+library(ciftiTools)
+stopifnot(packageVersion("ciftiTools") >= "0.2.0")
+ciftiTools.setOption("wb_path", "~/Desktop/workbench")
+
+# Directories
+# dir_data <- "/Users/Shared/Lab_Data"
+
+# Where the AC results were saved
+# dir_ac1 <- file.path(dir_project, "AC1")
+# dir_agg <- file.path(dir_project, "AC1_agg")
+dir_lm <- file.path(dir_project, "AC1_lm2")
+dir_plt <- file.path(dir_project, "AC1_ar6c_plots")
+
+tasks <- c("emotion", "gambling", "language", "motor") # , "relational", "social")
+
+cii <- read_cifti("/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii", resamp_res = 6000)
+# cii <- select_xifti(cii, rep(1, 10))
+cii$meta$cifti["intent"] <- list(3006)
+cii$meta$cifti[c("time_start", "time_step", "time_unit")] <- NULL
+```
+
+```{r}
+# nVox <- 59412
+
+time <- Sys.time()
+  
+  # for (meas in c("var", "acf1", "ar6c", "ar6v", "aic")) {
+for (meas in c("ar6c")) {
+  cat(meas, "\t")
+  
+  q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_FP.rds")))
+  # nVox <- 10578
+  q$fixed_fx <- q$fixed_fx[1:10578,,]
+  
+  for(j in 1:dim(q$fixed_fx)[3]){
+    cii <- newdata_xifti(cii, q$fixed_fx[,,j], colnames(q$fixed_fx))
+     for (ii in seq(colnames(q$fixed_fx))) { 
+       view_xifti_surface(cii, idx=ii, zlim = c(-0.15, 0, 0.45), 
+                          title=paste(meas, dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep=" "), 
+                          fname=file.path(dir_plt, paste(meas, dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep="_"))) 
+     }
+  }
+
+  cat("\n")
+  print(Sys.time() - time); time <- Sys.time()
+}
+
+
+# investigating the coefficient estimates' differences between models
+diff <- q$fixed_fx[,,4] - q$fixed_fx[,,3] # magnitude difference canHRF- TDcanHRF with no pw on both cases 
+diff <- melt(diff)
+ggplot(diff, aes(x = Var1, y = value, color = Var2)) + geom_line(alpha = 0.4) + facet_wrap(~Var2)
+
+# differences as images
+for (meas in c("ar6c")) {
+  cat(meas, "\t")
+  
+  q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_FP.rds")))
+  # nVox <- 10578
+  q$fixed_fx <- q$fixed_fx[1:10578,,]
+  
+  diff <- q$fixed_fx[,,4] - q$fixed_fx[,,3]
+  cii_diff <- newdata_xifti(cii, diff, colnames(q$fixed_fx))
+  for (ii in seq(colnames(q$fixed_fx))) { 
+       view_xifti_surface(cii_diff, idx=ii, zlim =c(0, 0.05),
+                          title = paste(meas,"canHRF-TDcanHRF", colnames(q$fixed_fx)[ii], sep=" "), 
+                          fname = file.path(dir_plt, paste(meas,"diff", colnames(q$fixed_fx)[ii], sep="_")))
+  }
+}
+
+
+
+
+
+
+# investigtaing the residuals' magnitude of LMM
+res_dat <- cbind(q$var_cor[,11,4], q$var_cor[,11,3])
+res_dat <- melt(res_dat, id = c("V1", "V2"))
+ggplot(res_dat, aes(x= Var1, y = value, color = Var2)) + geom_line()
+ggplot(res_dat, aes(x= Var1, y = value, color = as.factor(Var2))) + geom_line()
+ggplot(res_dat, aes(x= Var1, y = value, color = as.factor(Var2))) + geom_line(alpha = 0.4)
+ggplot(res_dat, aes(x= Var1, y = value, color = as.factor(Var2))) + geom_line("line")
+ 
+# residuls as images
+for (meas in c("ar6c")) {
+  cat(meas, "\t")
+  q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_FP.rds")))
+  # nVox <- 10578
+  q$var_cor <- q$var_cor[1:10578,,]
+    for(j in 1:dim(q$var_cor)[3]){
+      resids <- q$var_cor[,11,j]
+      cii_resids <- newdata_xifti(cii, resids, colnames(q$var_cor)[11])
+      view_xifti_surface(cii_resids, zlim= c(0,0.1),
+                          title=paste(meas, dimnames(q$var_cor)[[3]][j], colnames(q$var_cor)[11], sep=" "), 
+                          fname=file.path(dir_plt, paste(meas, dimnames(q$var_cor)[[3]][j], colnames(q$var_cor)[11], sep="_")))
+    }
+}
+
+
+
+
+
+
+
+
+dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
+dir_agg <- file.path(dir_project, "AC1_agg")
+dat <- readRDS(file.path(dir_agg, paste0("aci.rds")))
+df <- do.call(expand.grid, dimnames(dat)[rev(seq(length(dim(dat))-1))])
+df$hrf_dt <- grepl("dHRF", df$nreg)
+dat_vv <- dat[,,,,,1]
+df_vv <- melt(dat_vv, varnames=names(dimnames(dat_vv)))
+
+
+
+
+```
+
+```
+
+
