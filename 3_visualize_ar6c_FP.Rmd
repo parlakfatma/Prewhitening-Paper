@@ -8,8 +8,8 @@ output: html_document
 
 
 ```{r}
-# dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/5_Updated_masters_thesis/code"
-dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
+dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/5_Updated_masters_thesis/code"
+# dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
 # dat <- readRDS(file.path(dir_project, "ar6cLMM_FP.rds"))
 # dat_ <- readRDS(file.path(dir_project, "ar6c.rds"))
 
@@ -30,8 +30,8 @@ dir_plt <- file.path(dir_project, "AC1_ar6c_plots")
 ## CIFTI
 library(ciftiTools)
 stopifnot(packageVersion("ciftiTools") >= "0.2.0")
-ciftiTools.setOption("wb_path", "~/Desktop/workbench")
-
+# ciftiTools.setOption("wb_path", "~/Desktop/workbench")
+ciftiTools.setOption("wb_path", "~/Documents/workbench")
 # Directories
 # dir_data <- "/Users/Shared/Lab_Data"
 
@@ -43,15 +43,16 @@ dir_plt <- file.path(dir_project, "AC1_ar6c_plots")
 
 tasks <- c("emotion", "gambling", "language", "motor") # , "relational", "social")
 
-cii <- read_cifti("/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii", resamp_res = 6000)
+
+cii <- read_cifti("/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/5_Updated_masters_thesis/data/tfMRI_GAMBLING_LR_Atlas.dtseries.nii", resamp_res = 6000)
+
+# cii <- read_cifti("/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii", resamp_res = 6000)
 # cii <- select_xifti(cii, rep(1, 10))
 cii$meta$cifti["intent"] <- list(3006)
 cii$meta$cifti[c("time_start", "time_step", "time_unit")] <- NULL
 ```
 
 ```{r}
-# nVox <- 59412
-
 time <- Sys.time()
   
   # for (meas in c("var", "acf1", "ar6c", "ar6v", "aic")) {
@@ -77,6 +78,7 @@ for (meas in c("ar6c")) {
 
 
 # investigating the coefficient estimates' differences between models
+library(reshape2)
 diff <- q$fixed_fx[,,4] - q$fixed_fx[,,3] # magnitude difference canHRF- TDcanHRF with no pw on both cases 
 diff <- melt(diff)
 ggplot(diff, aes(x = Var1, y = value, color = Var2)) + geom_line(alpha = 0.4) + facet_wrap(~Var2)
