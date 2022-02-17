@@ -79,6 +79,7 @@ for (meas in c("ar6c")) {
 
 # investigating the coefficient estimates' differences between models
 library(reshape2)
+library(ggplot2)
 diff <- q$fixed_fx[,,4] - q$fixed_fx[,,3] # magnitude difference canHRF- TDcanHRF with no pw on both cases 
 diff <- melt(diff)
 ggplot(diff, aes(x = Var1, y = value, color = Var2)) + geom_line(alpha = 0.4) + facet_wrap(~Var2)
@@ -100,19 +101,13 @@ for (meas in c("ar6c")) {
   }
 }
 
-
-
-
-
-
 # investigtaing the residuals' magnitude of LMM
 res_dat <- cbind(q$var_cor[,11,4], q$var_cor[,11,3])
 res_dat <- melt(res_dat, id = c("V1", "V2"))
 ggplot(res_dat, aes(x= Var1, y = value, color = Var2)) + geom_line()
 ggplot(res_dat, aes(x= Var1, y = value, color = as.factor(Var2))) + geom_line()
 ggplot(res_dat, aes(x= Var1, y = value, color = as.factor(Var2))) + geom_line(alpha = 0.4)
-ggplot(res_dat, aes(x= Var1, y = value, color = as.factor(Var2))) + geom_line("line")
- 
+
 # residuls as images
 for (meas in c("ar6c")) {
   cat(meas, "\t")
@@ -129,25 +124,21 @@ for (meas in c("ar6c")) {
 }
 
 
+# df <- do.call(expand.grid, dimnames(dat)[rev(seq(length(dim(dat))-1))])
+# df$hrf_dt <- grepl("dHRF", df$nreg) # dHRF= 1, HRF = 0
+# df$pw <- grepl("ar6", df$nreg) # pw = 1, non-pw = 0
+# library(tidyverse)
+# library(lme4)
+# library(plyr)
+# 
+# df_means <-
+#   reshape2::melt(dat) %>% 
+#        group_by(nreg, task, vox) %>% 
+#        dplyr::summarize(value = mean(value))
 
 
 
-
-
-
-dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
-dir_agg <- file.path(dir_project, "AC1_agg")
-dat <- readRDS(file.path(dir_agg, paste0("aci.rds")))
-df <- do.call(expand.grid, dimnames(dat)[rev(seq(length(dim(dat))-1))])
-df$hrf_dt <- grepl("dHRF", df$nreg)
-dat_vv <- dat[,,,,,1]
-df_vv <- melt(dat_vv, varnames=names(dimnames(dat_vv)))
-
-
-
-
-```
-
+    
 ```
 
 
