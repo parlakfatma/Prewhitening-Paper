@@ -1,5 +1,5 @@
 ---
-title: "3_visualize_ar6c_FP"
+title: "3_visualize_LMM_FP"
 author: "fatma parlak"
 date: "2/10/2022"
 output: html_document
@@ -56,9 +56,10 @@ cii$meta$cifti[c("time_start", "time_step", "time_unit")] <- NULL
 time <- Sys.time()
   
   # for (meas in c("var", "acf1", "ar6c", "ar6v", "aic")) {
-for (meas in c("ar6c")) {
+for (meas in c("aci", "ar6c")) {
   cat(meas, "\t")
-  
+  if(meas == "aci"){zlim_meas = c(0,2.8)}
+  else{zlim_ii = c(-0.15, 0.45)}
   q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_FP.rds")))
   # nVox <- 10578
   q$fixed_fx <- q$fixed_fx[1:10578,,]
@@ -66,7 +67,7 @@ for (meas in c("ar6c")) {
   for(j in 1:dim(q$fixed_fx)[3]){
     cii <- newdata_xifti(cii, q$fixed_fx[,,j], colnames(q$fixed_fx))
      for (ii in seq(colnames(q$fixed_fx))) { 
-       view_xifti_surface(cii, idx=ii, zlim = c(-0.15, 0, 0.45), 
+       view_xifti_surface(cii, idx=ii, zlim = zlim_meas, 
                           title=paste(meas, dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep=" "), 
                           fname=file.path(dir_plt, paste(meas, dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep="_"))) 
      }
