@@ -8,17 +8,15 @@ output: html_document
 
 
 ```{r}
-# dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/5_Updated_masters_thesis/code"
-dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
-# dat <- readRDS(file.path(dir_project, "ar6cLMM_FP.rds"))
-# dat_ <- readRDS(file.path(dir_project, "ar6c.rds"))
-
+# dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
+dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
 
 # Where the AC results were saved
 # dir_ac1 <- file.path(dir_project, "AC1")
 # dir_agg <- file.path(dir_project, "AC1_agg")
-dir_lm <- file.path(dir_project, "AC1_lm2")
-dir_plt <- file.path(dir_project, "AC1_ar6c_plots")
+dir_code <- file.path(dir_project, "code")
+dir_lm <- file.path(dir_project,"code", "AC1_lm2")
+dir_plt <- file.path(dir_project, "plot", "AC1_lm2_plots")
 
 
 # Setup ---------------------------------------------------------------------------------
@@ -30,20 +28,14 @@ dir_plt <- file.path(dir_project, "AC1_ar6c_plots")
 ## CIFTI
 library(ciftiTools)
 stopifnot(packageVersion("ciftiTools") >= "0.2.0")
-ciftiTools.setOption("wb_path", "~/Desktop/workbench")
+ciftiTools.setOption("wb_path", "~/Documents/workbench")
 
 # Directories
 # dir_data <- "/Users/Shared/Lab_Data"
 
-# Where the AC results were saved
-# dir_ac1 <- file.path(dir_project, "AC1")
-# dir_agg <- file.path(dir_project, "AC1_agg")
-dir_lm <- file.path(dir_project, "AC1_lm2")
-dir_plt <- file.path(dir_project, "AC1_ar6c_plots")
-
 tasks <- c("emotion", "gambling", "language", "motor") # , "relational", "social")
-
-cii <- read_cifti("/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii", resamp_res = 6000)
+cii <- read_cifti(file.path(dir_project, "data/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"), resamp_res = 6000)
+# cii <- read_cifti("/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii", resamp_res = 6000)
 # cii <- select_xifti(cii, rep(1, 10))
 cii$meta$cifti["intent"] <- list(3006)
 cii$meta$cifti[c("time_start", "time_step", "time_unit")] <- NULL
