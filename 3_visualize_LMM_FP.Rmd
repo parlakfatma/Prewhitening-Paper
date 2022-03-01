@@ -46,7 +46,7 @@ cii$meta$cifti[c("time_start", "time_step", "time_unit")] <- NULL
 
 time <- Sys.time()
   
-measures <- c("aci", "ar6c")
+measures <- c("aic", "ar6c")
 zlim <- list(c(0, 2.8),
              c(-0.15, 0 , 0.45))
 for (meas in seq(measures)) {
@@ -61,21 +61,12 @@ for (meas in seq(measures)) {
   for(j in 1:dim(q$fixed_fx)[3]){
     cii <- newdata_xifti(cii, q$fixed_fx[,,j], colnames(q$fixed_fx))
      for (ii in seq(colnames(q$fixed_fx))) { 
-       view_xifti_surface(cii, idx=ii, # zlim = zlim_meas, 
+       view_xifti_surface(cii, idx=ii, zlim = zlim_meas, 
                           title=paste(meas, dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep=" "), 
                           fname=file.path(dir_plt, meas, paste(dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep="_"))) 
      }
   }
 
-  
-    for(j in 3:4){
-    cii <- newdata_xifti(cii, q$fixed_fx[,,j], colnames(q$fixed_fx))
-     for (ii in seq(colnames(q$fixed_fx))) { 
-       view_xifti_surface(cii, idx=ii, zlim = c(1.44, 3.5), 
-                          title=paste(meas, dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep=" "), 
-                          fname=file.path(dir_plt, meas, paste(dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep="_"))) 
-     }
-  }
   cat("\n")
   print(Sys.time() - time); time <- Sys.time()
 }
