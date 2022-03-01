@@ -97,7 +97,7 @@ for (meas in c("ar6c")) {
 
 
 
-
+# Hello Fatma! This is a surprise comment!
 
 # investigtaing the residuals' magnitude of LMM
 res_dat <- cbind(q$var_cor[,11,4], q$var_cor[,11,3])
