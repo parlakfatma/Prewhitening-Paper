@@ -55,7 +55,6 @@ for (meas in seq(measures)) {
   cat(meas, "\t")
   
   q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_FP.rds")))
-  # q$fixed_fx <- q$fixed_fx[1:10578,,]
   
   for(j in 1:dim(q$fixed_fx)[3]){
     cii <- newdata_xifti(cii, q$fixed_fx[,,j], colnames(q$fixed_fx))
@@ -83,10 +82,6 @@ for (meas in seq(measures)) {
                           fname=file.path(dir_plt_std, meas, paste(dimnames(q$var_cor)[[3]][j], colnames(q$var_cor)[ii], sep="_"))) 
      }
   }
-  
-  
-  
-  
   
   
   # investigating the coefficient estimates' differences between HRF modeling in npw
