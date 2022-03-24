@@ -17,7 +17,7 @@ dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhiten
 dir_code <- file.path(dir_project, "code")
 dir_lm <- file.path(dir_project,"code", "AC1_lm2")
 dir_plt <- file.path(dir_project, "plot", "AC1_lm2_plots")
-
+dir_plt_std <- file.path(dir_project, "plot", "AC1_RE_std_images")
 
 # Setup ---------------------------------------------------------------------------------
 
@@ -46,7 +46,7 @@ cii$meta$cifti[c("time_start", "time_step", "time_unit")] <- NULL
 
 time <- Sys.time()
   
-measures <- c("aic", "ar6c")
+measures <- c("aci", "ar6c")
 zlim <- list(c(0, 2.8),
              c(-0.15, 0 , 0.45))
 for (meas in seq(measures)) {
@@ -55,8 +55,7 @@ for (meas in seq(measures)) {
   cat(meas, "\t")
   
   q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_FP.rds")))
-  # nVox <- 10578
-  q$fixed_fx <- q$fixed_fx[1:10578,,]
+  # q$fixed_fx <- q$fixed_fx[1:10578,,]
   
   for(j in 1:dim(q$fixed_fx)[3]){
     cii <- newdata_xifti(cii, q$fixed_fx[,,j], colnames(q$fixed_fx))
@@ -66,7 +65,52 @@ for (meas in seq(measures)) {
                           fname=file.path(dir_plt, meas, paste(dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep="_"))) 
      }
   }
-
+  
+  if(meas == "aci"){ 
+    zlim_ = list(c(0, 0.03), c(0, 0.03), c(0,0.45),c(0,0.45))
+  } else {
+    zlim_ = list(c(0, 0.026), c(0, 0.026), c(0,0.1),c(0,0.1))
+  }
+  
+  
+  q$var_cor <- q$var_cor[,1:4,] # to select only standard deviations
+  for(j in 1:dim(q$var_cor)[3]){
+    print(dimnames(q$var_cor)[[3]][j])
+    cii <- newdata_xifti(cii, q$var_cor[,,j], colnames(q$var_cor))
+     for (ii in seq(colnames(q$var_cor))) { 
+       view_xifti_surface(cii, idx=ii, #zlim = zlim_[[ii]], 
+                          title=paste(meas, dimnames(q$var_cor)[[3]][j], colnames(q$var_cor)[ii], sep=" "), 
+                          fname=file.path(dir_plt_std, meas, paste(dimnames(q$var_cor)[[3]][j], colnames(q$var_cor)[ii], sep="_"))) 
+     }
+  }
+  
+  
+  
+  
+  
+  
+  # investigating the coefficient estimates' differences between HRF modeling in npw
+  if(meas == "aci"){ zlim_ <- c(-0.21, 0, 0.21)}
+  else{zlim_ <- c(-0.004, 0,  0.004)}
+  diff_std <- q$var_cor[,,3] - q$var_cor[,,4]
+  cii_diff_std <- newdata_xifti(cii, diff_std, colnames(q$var_cor))
+  for (ii in seq(colnames(q$var_cor))) { 
+       view_xifti_surface(cii_diff_std, idx=ii, zlim = zlim_,
+                          title = paste(meas,"TDHRF-canHRF", colnames(q$var_cor)[ii], sep=" "), 
+                          fname = file.path(dir_plt_std, meas, "diff",paste("npw", colnames(q$var_cor)[ii], sep="_")))
+  }
+  
+  # investigating the coefficient estimates' differences between HRF modeling in with pw
+  if(meas == "aci"){ zlim_ <- c(-0.008,0, 0.008)}
+  else{zlim_ <- c(-0.002, 0, 0.002)}
+  diff_std <- q$var_cor[,,1] - q$var_cor[,,2]
+  cii_diff_std <- newdata_xifti(cii, diff_std, colnames(q$var_cor))
+  for (ii in seq(colnames(q$var_cor))) { 
+       view_xifti_surface(cii_diff_std, idx=ii, zlim = zlim_,
+                          title = paste(meas,"TDHRF-canHRF", colnames(q$var_cor)[ii], sep=" "), 
+                          fname = file.path(dir_plt_std, meas, "diff",paste("pw", colnames(q$var_cor)[ii], sep="_")))
+  }
+  
   cat("\n")
   print(Sys.time() - time); time <- Sys.time()
 }
