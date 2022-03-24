@@ -65,19 +65,30 @@ for (meas in seq(measures)) {
      }
   }
   
-  if(meas == "aci"){ 
-    zlim_ = list(c(0, 0.03), c(0, 0.03), c(0,0.45),c(0,0.45))
+  # The following explanation for the if & else statement
+  # each array is zlim for combination(HRF&pw)
+  # We have 2 rows for lower & upper limits for zlim.
+  # We have 4 columns for each task's z lim.
+  if(meas == "aci"){  
+    zlim_ = list(array(c(0, 0.03),c(2,4)),
+                 array(c(0, 0.03),c(2,4)), 
+                 array(c(0, 0.45),c(2,4)),
+                 array(c(0, 0.45),c(2,4)))
   } else {
-    zlim_ = list(c(0, 0.026), c(0, 0.026), c(0,0.1),c(0,0.1))
+    zlim_ = list(array(c(0, 0.026),c(2,4)),
+                 array(c(0, 0.026),c(2,4)), 
+                 array(c(0, 0.1),c(2,4)),
+                 array(c(0, 0.1),c(2,4)))
   }
   
-  
+    
   q$var_cor <- q$var_cor[,1:4,] # to select only standard deviations
   for(j in 1:dim(q$var_cor)[3]){
     print(dimnames(q$var_cor)[[3]][j])
     cii <- newdata_xifti(cii, q$var_cor[,,j], colnames(q$var_cor))
      for (ii in seq(colnames(q$var_cor))) { 
-       view_xifti_surface(cii, idx=ii, #zlim = zlim_[[ii]], 
+       print(colnames(q$var_cor))
+       view_xifti_surface(cii, idx=ii, zlim = zlim_[[j]][,ii], 
                           title=paste(meas, dimnames(q$var_cor)[[3]][j], colnames(q$var_cor)[ii], sep=" "), 
                           fname=file.path(dir_plt_std, meas, paste(dimnames(q$var_cor)[[3]][j], colnames(q$var_cor)[ii], sep="_"))) 
      }
