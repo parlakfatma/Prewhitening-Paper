@@ -1,0 +1,148 @@
+---
+title: "3_LMM_Thesis_Replicate_FP"
+author: "fatma parlak"
+date: "2/7/2022"
+output: html_document
+---
+
+```{r}
+library(reshape2)
+library(lme4)
+
+# Directories
+dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper/code"
+
+# dir_ac1 <- file.path(dir_project, "AC1")
+dir_agg <- file.path(dir_project, "AC1_agg")
+dir_lm  <- file.path(dir_project, "AC1_lm2")
+
+# 45 HCP retest subjects
+subjects <- c(
+  103818, 187547,
+  105923, 192439,
+  111312, 194140,
+  114823, 195041,
+  115320, 200109,
+  122317, 200614,
+  125525, 204521,
+  130518, 250427,
+  135528, 287248,
+  137128, 341834,
+  139839, 433839,
+  143325, 562345,
+  144226, 599671,
+  146129, 601127,
+  149337, 627549,
+  149741, 660951,
+  151526, 662551,
+  158035, 783462,
+  169343, 859671,
+  172332, 861456,
+  175439, 877168,
+  177746, 917255,
+  185442
+)
+
+# Remove subjects excluded from Fatma's original analysis.
+subjects_rm <- c(
+  144226, 627549,
+  660951, 169343,
+  177746
+)
+# 877168 has missing data for Language; see 0_Check
+subjects <- setdiff(subjects, subjects_rm)
+
+tasks <- c("emotion", "gambling", "language", "motor") #, "relational", "social")
+nVox <-  10578
+```
+
+
+
+```{r}
+time <- Sys.time()
+# for (meas in c("var", "acf1", "ar6c", "ar6v", "aci")) {
+for (meas in c("aci", "ar6c")) {
+  cat(meas, "\t")
+  
+
+  fixed_fx <- array(NA, dim= c(nVox, ncol= 9, 2)) # 9 fixed effects (E, G, M, R, RL, dHRF, dHRF*G, DHRF*M, dHRF*R) for each (pw & non-pw)
+  dimnames(fixed_fx) <- list(1:nVox, 1:9, c("pw", "npw")) # prewhitening & nonprewhitening
+  var_cor <- array(NA, dim = c(nrow=nVox, ncol = 37, 2)) # [(4 for diagonal + 3*4/2 for off-diagonals]*2 for HRF + 1 for residual 
+  dimnames(var_cor) <- list(1:nVox, 1:37, c("pw", "npw")) # prewhitening & nonprewhitening
+  
+  dat <- readRDS(file.path(dir_agg, paste0(meas, ".rds")))
+  # dat <- readRDS(file.path(dir_project, paste0(meas, ".rds")))
+  df <- do.call(expand.grid, dimnames(dat)[rev(seq(length(dim(dat))-1))])
+  
+  df$hrf_dt <- grepl("dHRF", df$nreg) # dHRF = 1, HRF = 0
+  df$pw <- grepl("ar6", df$nreg) # pw = 1, non-pw = 0
+
+  for (vv in seq(nVox)) {
+    print(vv)
+    # if (vv %% 10000 == 0) { cat(vv, "\t") }
+    # df$meas <- as.vector(dat[,,,,,vv])
+    # FP: we dont use df in anywhere further
+    dat_vv <- dat[,,,,,vv]
+    df_vv <- melt(dat_vv, varnames=names(dimnames(dat_vv)))
+    
+    # df_vv$dHRF <- 1 - grepl('hrfdt', df_vv$nreg) # 0 = dHRF included (baseline), 1 = dHRF not included
+    
+    df_vv$hrf_dt <- 1- grepl("dHRF", df_vv$nreg) # dHRF= 0, HRF = 1
+    df_vv$pw <- 1-grepl("ar6", df_vv$nreg) # pw = 0, non-pw = 1
+  
+    # df_vv$dHRF <- grepl('ar6_HRF', df_vv$nreg) + grepl('ar0_HRF', df_vv$nreg) # 0 = dHRF included (baseline), 1 = dHRF not included
+    # FP:  needed to change above code as this time the HRF are coded differently
+    # df_vv$motion <- 1 - grepl('rp', df_vv$nreg) # 0 = motion regression (baseline), 1 = no motion regression
+    # FP: we dont have this condition in this data 
+    # table(df_vv$nreg, df_vv$dHRF)
+    # table(df_vv$nreg, df_vv$motion)
+    # df_vv_dHRF <- subset(df_vv, nreg == "ar6_dHRF")
+    # df_vv_HRF <- subset(df_vv, nreg == "ar6_HRF") 
+    # q <- lme4::lmer(value ~ -1 + task + task:(dHRF + motion) + acquisition + ((-1 + task)|subject), data=df_vv) # lm2
+    # list_df <- list(df_vv_dHRF, df_vv_HRF)
+    
+    # subsetting the df_vv based on prewhitening
+    df_vv_pw <- subset(df_vv, pw == 0)
+    df_vv_npw <- subset(df_vv, pw == 1)
+    list_df <- list(df_vv_pw, df_vv_npw)
+    
+    # df_vv_dHRF_pw <-   subset(df_vv, hrf_dt == 0 & pw == 0)
+    # df_vv_HRF_pw <-    subset(df_vv, hrf_dt == 1 & pw ==0)
+    # df_vv_dHRF_npw <-  subset(df_vv, hrf_dt == 0 & pw ==1)
+    # df_vv_HRF_npw <-   subset(df_vv, hrf_dt == 1 & pw ==1)   
+    # list_df <- list(df_vv_dHRF_pw, df_vv_HRF_pw, df_vv_dHRF_npw, df_vv_HRF_npw)
+    
+    for(idf in seq(list_df)){
+      print(idf)
+      df_vv <- list_df[[idf]]
+      q <- lme4::lmer(value ~ -1 + task + acquisition + hrf_dt + (-1+ task*hrf_dt)  + (-1 + task * hrf_dt | subject) , data = df_vv)
+      fixed_fx[vv,,idf] <- c(fixef(q))
+      var_cor[vv,,idf] <- c((as.data.frame(VarCorr(q))$sdcor))  # 4*2 std + (7*8)/2 corr + 1 residual
+  
+      if (vv == 1) {
+        colnames(fixed_fx) <- names(fixef(q))
+        colnames(var_cor) <- apply(as.data.frame(VarCorr(q))[,seq(3)], 1, paste, collapse="-")
+      }
+    }
+  }     
+  # consider save(fixed_fx, var_cor, file='myfile.RData') if you're saving multiple objects
+  saveRDS(list(fixed_fx = fixed_fx, var_cor = var_cor), file.path(dir_lm, paste0(meas, "LMM_2_FP.rds")))
+  
+  # Time difference of 56.33793 mins :)
+  # temp <- fixed_fx
+  # colnames(temp) <- c("taskemotion", "acqRL", "taskgambling", "taskmotor", "taskrelational")
+  # for(i in 1:4){
+  #   tempi <- as.data.frame(temp[,,i])
+  #   tempi$taskgambling <- c(tempi$taskemotion) + c(tempi$taskgambling)
+  #   tempi$taskmotor <- tempi$taskemotion + tempi$taskmotor
+  #   tempi$taskrelational <- tempi$taskemotion + tempi$taskrelational
+  #   
+  #   tempii <- as.matrix(tempi)
+  #   temp[,,i] <- tempii
+  # }
+  # saveRDS(list(fixed_fx = temp, var_cor = var_cor), file.path(dir_lm, paste0(meas, "LMM_FP_temp.rds")))
+  
+  cat("\n")
+  print(Sys.time() - time); time <- Sys.time()
+}
+```
