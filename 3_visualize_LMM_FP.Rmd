@@ -16,8 +16,9 @@ dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhiten
 # dir_agg <- file.path(dir_project, "AC1_agg")
 dir_code <- file.path(dir_project, "code")
 dir_lm <- file.path(dir_project,"code", "AC1_lm2")
-dir_plt <- file.path(dir_project, "plot", "AC1_lm2_plots")
-dir_plt_std <- file.path(dir_project, "plot", "AC1_RE_std_images")
+# dir_plt <- file.path(dir_project, "plot", "AC1_lm2_plots")
+dir_plt <- file.path(dir_project, "plot", "AC1_LMM_2_plots") # plots from the task- HRF interaction included LMM
+dir_plt_std <- file.path(dir_project, "plot", "AC1_RE_2_std_images")
 
 # Setup ---------------------------------------------------------------------------------
 
@@ -54,12 +55,30 @@ for (meas in seq(measures)) {
   meas <- measures[meas]
   cat(meas, "\t")
   
-  q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_FP.rds")))
+  # q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_FP.rds"))) # data without the HRF-task interaction
+  q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_2_FP.rds"))) # data with the HRF-task interaction
   
-  for(j in 1:dim(q$fixed_fx)[3]){
+ if(meas == "aci"){ ######################## for aci
+    zlim_ = list(cbind(array(c(1.44, 1.53),c(2,4)), # PW zlim for 4 tasks 
+                             c(-0.02, 0.02), ######## PW zlim for acq RL 
+                             c(-0.007, 0.02), ######## PW zlim for TD 
+                       array(c(-0.02, 0.04),c(2,3))),# PW zlim for 3task * TD
+                 cbind(array(c(1.44,  3.62),c(2,4)),  # nonPW zlim for 4 tasks 
+                             c(-0.60, 0.30),  ######## nonPW zlim for acq RL  
+                             c(-0.009, 0.6),  ######## nonPW zlim for TD 
+                       array(c(-0.3, 1.00 ),c(2,3))))# nonPW zlim for 3task * TD 
+  } else { ################################## for ar6c NEED TO BE FIXED!!
+    zlim_ = list(array(c(0, 0.026),c(2,4)), # zlim for the pw canHRF for 4 tasks
+                 array(c(0, 0.026),c(2,4)), # zlim for the pw TDcanHRF for 4 tasks
+                 array(c(0, 0.1),c(2,4)),   # zlim for the npw canHRF for 4 tasks
+                 array(c(0, 0.1),c(2,4)))   # zlim for the npw TDcanHRF for 4 tasks
+  }
+  
+  for(j in 1:dim(q$fixed_fx)[3]){ # loop over {pw, npw}
+    print(j)
     cii <- newdata_xifti(cii, q$fixed_fx[,,j], colnames(q$fixed_fx))
-     for (ii in seq(colnames(q$fixed_fx))) { 
-       view_xifti_surface(cii, idx=ii, zlim = zlim_meas, 
+     for (ii in seq(colnames(q$fixed_fx))) {  # loop over fixed effect coefficients
+       view_xifti_surface(cii, idx=ii,  zlim = zlim_[[j]][,ii], 
                           title=paste(meas, dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep=" "), 
                           fname=file.path(dir_plt, meas, paste(dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep="_"))) 
      }
@@ -70,21 +89,17 @@ for (meas in seq(measures)) {
   ############              RE's std dev                                ########
   ##############################################################################
   
-  q$var_cor <- q$var_cor[,1:4,] # to select only standard deviations
+  q$var_cor <- q$var_cor[,1:8,] # to select only standard deviations of RE
   # The following explanation for the if & else statement
   # each array is zlim for combination(HRF&pw)
   # We have 2 rows for lower & upper limits for zlim.
   # We have 4 columns for each task's z lim.
-  if(meas == "aci"){  
-    zlim_ = list(array(c(0, 0.03),c(2,4)),
-                 array(c(0, 0.03),c(2,4)), 
-                 array(c(0, 0.45),c(2,4)),
-                 array(c(0, 0.45),c(2,4)))
-  } else {
-    zlim_ = list(array(c(0, 0.026),c(2,4)),
-                 array(c(0, 0.026),c(2,4)), 
-                 array(c(0, 0.1),c(2,4)),
-                 array(c(0, 0.1),c(2,4)))
+  if(meas == "aci"){ ######################## for aci
+    zlim_ = list(array(c(0, 0.08),c(2,8)),  # zlim for the pw RE's std
+                 array(c(0, 1),c(2,8)))    # zlim for the non-pw RE's std
+  } else { ################################## for ar6c
+    zlim_ = list(array(c(0, 0.026),c(2,4)), # zlim for the pw canHRF for 4 tasks
+                 array(c(0, 0.1),c(2,4)))   # zlim for the npw TDcanHRF for 4 tasks
   }
   
 
@@ -101,8 +116,8 @@ for (meas in seq(measures)) {
   
   
   # investigating the coefficient estimates' differences between HRF modeling in npw (AR6c)
-  if(meas == "aci"){ zlim_ <- c(-0.21, 0, 0.21)}
-  else{zlim_ <- c(-0.004, 0,  0.004)}
+  # if(meas == "aci"){ zlim_ <- c(-0.21, 0, 0.21)}
+  # else{zlim_ <- c(-0.004, 0,  0.004)}
   diff_std <- q$var_cor[,,3] - q$var_cor[,,4]
   cii_diff_std <- newdata_xifti(cii, diff_std, colnames(q$var_cor))
   for (ii in seq(colnames(q$var_cor))) { 
@@ -123,12 +138,12 @@ for (meas in seq(measures)) {
   }
   
   # investigating the coefficient estimates' differences between HRF modeling in npw (ACI)
-  if(meas == "aci"){ zlim_ <- c(-0.21, 0, 0.21)} else {zlim_ <- c(-0.004, 0,  0.004) }
-  diff_std <- q$var_cor[,,3] - q$var_cor[,,4]
+  # if(meas == "aci"){ zlim_ <- c(-0.21, 0, 0.21)} else {zlim_ <- c(-0.004, 0,  0.004) }
+  diff_std <- q$var_cor[,,2] - q$var_cor[,,1] # npw - pw
   cii_diff_std <- newdata_xifti(cii, diff_std, colnames(q$var_cor))
   for (ii in seq(colnames(q$var_cor))) { 
-       view_xifti_surface(cii_diff_std, idx=ii, zlim = zlim_,
-                          title = paste(meas,"TDHRF-canHRF", colnames(q$var_cor)[ii], sep=" "), 
+       view_xifti_surface(cii_diff_std, idx=ii, #zlim = zlim_,
+                          title = paste(meas,"npw-pw", colnames(q$var_cor)[ii], sep=" "), 
                           fname = file.path(dir_plt_std, meas, "diff",paste("npw", colnames(q$var_cor)[ii], sep="_")))
   }
   
