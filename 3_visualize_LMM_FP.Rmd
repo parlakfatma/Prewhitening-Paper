@@ -126,35 +126,14 @@ for (meas in seq(measures)) {
                           fname = file.path(dir_plt_std, meas, "diff",paste("npw", colnames(q$var_cor)[ii], sep="_")))
   }
   
-  # investigating the coefficient estimates' differences between HRF modeling in with pw (AR6c)
-  if(meas == "aci"){ zlim_ <- c(-0.008,0, 0.008)}
-  else{zlim_ <- c(-0.002, 0, 0.002)}
-  diff_std <- q$var_cor[,,1] - q$var_cor[,,2]
-  cii_diff_std <- newdata_xifti(cii, diff_std, colnames(q$var_cor))
-  for (ii in seq(colnames(q$var_cor))) { 
-       view_xifti_surface(cii_diff_std, idx=ii, zlim = zlim_,
-                          title = paste(meas,"TDHRF-canHRF", colnames(q$var_cor)[ii], sep=" "), 
-                          fname = file.path(dir_plt_std, meas, "diff",paste("pw", colnames(q$var_cor)[ii], sep="_")))
-  }
-  
-  # investigating the coefficient estimates' differences between HRF modeling in npw (ACI)
-  # if(meas == "aci"){ zlim_ <- c(-0.21, 0, 0.21)} else {zlim_ <- c(-0.004, 0,  0.004) }
+  # investigating the coefficient estimates' differences between pw and npw RE (ACI)
+  if(meas == "aci"){ zlim_ <- c(-0.03, 0.9)} else {zlim_ <- c(-0.004, 0,  0.004) } #AR6c zlims need to be fixed!!!
   diff_std <- q$var_cor[,,2] - q$var_cor[,,1] # npw - pw
   cii_diff_std <- newdata_xifti(cii, diff_std, colnames(q$var_cor))
   for (ii in seq(colnames(q$var_cor))) { 
-       view_xifti_surface(cii_diff_std, idx=ii, #zlim = zlim_,
+       view_xifti_surface(cii_diff_std, idx=ii, zlim = zlim_,
                           title = paste(meas,"npw-pw", colnames(q$var_cor)[ii], sep=" "), 
                           fname = file.path(dir_plt_std, meas, "diff",paste("npw", colnames(q$var_cor)[ii], sep="_")))
-  }
-  
-  # investigating the coefficient estimates' differences between HRF modeling in with pw (ACI)
-  if(meas == "aci"){ zlim_ <- c(-0.008,0, 0.008)} else{zlim_ <- c(-0.002, 0, 0.002)}
-  diff_std <- q$var_cor[,,1] - q$var_cor[,,2]
-  cii_diff_std <- newdata_xifti(cii, diff_std, colnames(q$var_cor))
-  for (ii in seq(colnames(q$var_cor))) { 
-       view_xifti_surface(cii_diff_std, idx=ii, zlim = zlim_,
-                          title = paste(meas,"TDHRF-canHRF", colnames(q$var_cor)[ii], sep=" "), 
-                          fname = file.path(dir_plt_std, meas, "diff",paste("pw", colnames(q$var_cor)[ii], sep="_")))
   }
   
   
