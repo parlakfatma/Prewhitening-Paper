@@ -1,0 +1,214 @@
+---
+title: "Design Matrices of Tasks"
+author: "Damon Pham"
+date: "01/01/2021"
+output: html_document
+---
+
+```{r}
+# Setup ---------------------------------------------------------------------------------
+
+# Packages
+## `ciftiTools`: `read_xifti`
+# install.packages("ciftiTools")
+library(ciftiTools)
+stopifnot(packageVersion("ciftiTools") >= "0.2.2")
+## `BayesfMRI`: `scale_timeseries`, `make_HRFs`, `nuisance_regression`
+# There are some errors on this BayesfMRI commit, but in functions not used here.
+# devtools::install_github("mandymejia/BayesfMRI", "e6aafa56ce8d09b99df6ba1cb1e3ac72443a981d")
+library(BayesfMRI)
+stopifnot(packageVersion("BayesfMRI") >= "0.1.9")
+
+# Directories
+dir_data <- "/Users/Shared/Lab_Data"
+dir_project <- "/Users/ddpham/Desktop/HCP-AC"
+ciftiTools.setOption("wb_path", "/Users/ddpham/Desktop/workbench")
+
+# Where to save the first part of this analysis (this script)
+dir_ac1 <- file.path(dir_project, "AC1")
+
+# 45 HCP retest subjects
+subjects <- c(
+  103818, 187547,
+  105923, 192439,
+  111312, 194140,
+  114823, 195041,
+  115320, 200109,
+  122317, 200614,
+  125525, 204521,
+  130518, 250427,
+  135528, 287248,
+  137128, 341834,
+  139839, 433839,
+  143325, 562345,
+  144226, 599671,
+  146129, 601127,
+  149337, 627549,
+  149741, 660951,
+  151526, 662551,
+  158035, 783462,
+  169343, 859671,
+  172332, 861456,
+  175439, 877168,
+  177746, 917255,
+  185442
+)
+
+tasks <- c("emotion", "gambling", "language", "motor", "relational", "social")
+
+missing <- readRDS("0_MissingFiles.rds")
+missing[128,"emotion"] <- 3 #Truncated CIFTI
+```
+
+```{r}
+iters <- expand.grid(test=c(TRUE, FALSE), acquisition=c("LR", "RL"), subject=subjects)
+
+# for this function `v` MUST be de-meaned already!
+## since `v` is a residual timecourse, it's TRUE for our use case.
+get_ac_stats <- function(v){
+  vl <- length(v)
+  vvar <- var(v)
+  vacf1 <- mean( v[seq(vl-1)] * v[seq(2, vl)] ) / vvar
+  vaic <- stats::ar.yw(v, aic=TRUE, order.max=10, demean=FALSE)
+  if (vaic$order == 6) {
+    var6 <- vaic$ar[1]
+  } else {
+    var6 <- stats::ar.yw(v, aic=FALSE, order.max=6, demean=FALSE)$ar[1]
+  }
+  vaic <- vaic$order
+  c("var"=vvar, "acf1"=vacf1, "ar6"=var6, "aic"=vaic)
+}
+
+time <- Sys.time()
+for (task in tasks) {
+  TASK <- toupper(task); Task <- tools::toTitleCase(task)
+  cat(Task, "---------------------------------------------------------------\n")
+
+  for (ii in seq(nrow(iters))) {
+    
+    # Prep ------------------------------------------------------------------------------
+    test <- iters[ii, "test"]
+    acquisition <- as.character(iters[ii, "acquisition"])
+    subject <- iters[ii, "subject"]
+    ii_name <- paste0(subject, "_", acquisition, ifelse(test, 1, 2))
+    cat(ii_name, "\t")
+    if (missing[ii,task] > 0) { cat("Missing data.\n"); next}
+    ac_fname <- file.path(dir_ac1, task, paste0(ii_name, ".rds"))
+    if (file.exists(ac_fname)) { cat("Done.\n"); next }
+    cat("\n")
+
+    # For each task, get the number of timepoints, data directory, and files to read ----
+    fname_prefix <- paste("tfMRI", TASK, acquisition, sep="_")
+    ## Number of timepoints
+    T_ <- switch(task,
+      emotion = 176,
+      gambling = 253,
+      language = 316,
+      motor = 284,
+      relational = 232,
+      social = 274
+    )
+    ## Task event files
+    fnames <- switch(task,
+      emotion = c("fear", "neut"), 
+      gambling = c("loss_event", "neut_event", "win_event"),
+      language = as.character(outer(c("present", "question", "response"), c("math", "story"), paste, sep="_")),
+      motor = c("cue", "lf", "lh", "rf", "rh", "t"),
+      relational = c("match", "relation"),
+      social = c("mental", "rnd", "mental_resp", "other_resp")
+    )
+    fnames <- file.path("EVs", paste0(fnames, ".txt"))
+    ## Get the data sub-directory for this iteration
+    dir_data_ii <- file.path(dir_data, paste0("HCP_", TASK))
+    if (!test) { dir_data_ii <- file.path(dir_data_ii, "retest") }
+    dir_data_ii <- file.path(dir_data_ii, subject, "MNINonLinear/Results", fname_prefix)
+    ## Add the CIFTI file and movement regressors
+    fnames <- c(
+      paste0(fname_prefix, "_Atlas.dtseries.nii"), "Movement_Regressors.txt", fnames
+    )
+    ## Full file paths
+    fnames <- file.path(dir_data_ii, fnames)
+
+    # Read in files --------------------------------------------------------------------
+    cat("Reading in files, and centering & scaling the CIFTI data.\n")
+    cii <- do.call(rbind, ciftiTools::read_xifti(fnames[[1]])$data)
+    cii_const <- rowMeans(abs(cii)) < 1
+    ## Gambling 662551_LR1
+    if (any(cii_const)) { 
+      cii <- cii[!cii_const,]
+      cat("Warning:", sum(cii_const), "voxels have a mean < 1. Removing these.\n")
+    }
+    cii <- BayesfMRI::scale_timeseries(cii, transpose=FALSE)
+    
+    rp <- scale(as.matrix( read.table(fnames[[2]]) ))
+    events <- lapply(
+      fnames[seq(3,length(fnames))], 
+      ## First column is onset; second is duration.
+      function(x){
+        # try: some event files are empty.
+        out <- try(read.table(x, header=FALSE))
+        if (inherits(out, "try-error")) {
+          return(NULL)
+        } else {
+          return(out[,seq(2)])
+        }
+      }
+    )
+    events <- events[!vapply(events, is.null, FALSE)]
+    
+    # Calculate model & residuals -----------------------------------------------------
+    cat("Calculating HRFs, running the GLMs, and obtaining their residuals.\n")
+    hrf <- scale(BayesfMRI::make_HRFs(events, 0.72, T_))
+    hrfdt <- scale(rbind(0, diff(hrf)))
+    dtb <- scale(cbind( seq(T_), (seq(T_) - round(mean(seq(T_))))^2 ))
+    design <- cbind(1, dtb, hrf)
+    
+    resids <- list(
+      base = BayesfMRI::nuisance_regression(cii, design),
+      rp = BayesfMRI::nuisance_regression(cii, cbind(design, rp)),
+      hrfdt = BayesfMRI::nuisance_regression(cii, cbind(design, hrfdt)),
+      rp_hrfdt = BayesfMRI::nuisance_regression(cii, cbind(design, rp, hrfdt))
+    )
+    
+    ## In case voxels became constant after nuisance regression
+    resids_const <- setNames(rep(list(cii_const), length(resids)), names(resids))
+    for (rr in seq(4)) {
+      resid_const <- colSums(abs(resids[[rr]])) < 1e-8
+      if (any(resid_const)) { 
+        cat("Warning:", sum(resid_const), "voxels became constant after", names(resids)[rr], "nuisance regression. Removing these.\n")
+        resids_const[[rr]][!resids_const[[rr]]] <- resid_const
+        resids[[rr]] <- resids[[rr]][,!resid_const]
+      }
+    }
+    
+    # Formatting
+    resids_const <- lapply(resids_const, which)
+    resids <- lapply(resids, t)
+    
+    # Estimate AC statistics & save --------------------------------------------------
+    cat("Estimating AC statistics.\n")
+    #out <- lapply(resids, function(x){ apply(x, 2, get_ac_stats) })
+    out <- setNames(vector("list", 4), names(resids))
+    for (rr in seq(4)) {
+      cat("\t", names(out)[rr])
+      out[[rr]] <- setNames(vector("list", 5), c("var", "acf1", "ar6c", "ar6v", "aic"))
+      resid <- resids[[rr]]
+      out[[rr]]$var <- apply(resid, 1, var)
+      out[[rr]]$acf1 <- apply(resid[,seq(T_-1)] * resid[,seq(2, T_)], 1, mean) / out[[rr]]$var
+      rr_ar6 <- apply(resid, 1, function(v){ q <- stats::ar.yw(v, aic=FALSE, order.max=6, demean=FALSE); c(q$ar[1], q$var.pred) })
+      out[[rr]]$ar6c <- rr_ar6[1,]
+      out[[rr]]$ar6v <- rr_ar6[2,]
+      out[[rr]]$aic <- apply(resid, 1, function(v){ stats::ar.yw(v, aic=TRUE, order.max=10, demean=FALSE)$order })
+    }
+    
+    # Formatting
+    out <- lapply(out, function(x){ list(z=do.call(cbind, x[names(x) != "aic"]), aic=x$aic) })
+    if (length(do.call(c, resids_const)) > 0) { out$const <- resids_const }
+    
+    cat("\nSaving.\n\n")
+    saveRDS(out, ac_fname)
+    
+    print(Sys.time() - time); time <- Sys.time()
+  }
+}
+```

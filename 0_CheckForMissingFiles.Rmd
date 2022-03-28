@@ -1,0 +1,108 @@
+---
+title: "HCP Autocorrelation"
+author: "Damon Pham"
+date: "01/01/2021"
+output: html_document
+---
+
+```{r}
+# Setup ---------------------------------------------------------------------------------
+
+# Directories
+dir_data <- "/Users/Shared/Lab_Data"
+dir_project <- "/Users/ddpham/Desktop/HCP-AC"
+
+# 45 HCP retest subjects
+subjects <- c(
+  103818, 187547,
+  105923, 192439,
+  111312, 194140,
+  114823, 195041,
+  115320, 200109,
+  122317, 200614,
+  125525, 204521,
+  130518, 250427,
+  135528, 287248,
+  137128, 341834,
+  139839, 433839,
+  143325, 562345,
+  144226, 599671,
+  146129, 601127,
+  149337, 627549,
+  149741, 660951,
+  151526, 662551,
+  158035, 783462,
+  169343, 859671,
+  172332, 861456,
+  175439, 877168,
+  177746, 917255,
+  185442
+)
+
+tasks <- c("emotion", "gambling", "language", "motor", "relational", "social")
+```
+
+```{r}
+iters <- expand.grid(test=c(TRUE, FALSE), acquisition=c("LR", "RL"), subject=subjects)
+
+missing <- matrix(0, nrow(iters), length(tasks))
+colnames(missing) <- tasks
+
+time <- Sys.time()
+for (task in tasks) {
+  TASK <- toupper(task); Task <- tools::toTitleCase(task)
+  cat(Task, "---------------------------------------------------------------\n")
+
+  for (ii in seq(nrow(iters))) {
+    
+    # Prep ------------------------------------------------------------------------------
+    test <- iters[ii, "test"]
+    acquisition <- as.character(iters[ii, "acquisition"])
+    subject <- iters[ii, "subject"]
+    ii_name <- paste0(subject, "_", acquisition, ifelse(test, 1, 2))
+    
+    # For each task, get the number of timepoints, data directory, and files to read ----
+    fname_prefix <- paste("tfMRI", TASK, acquisition, sep="_")
+    ## Number of timepoints
+    T_ <- switch(task,
+      emotion = 176,
+      gambling = 253,
+      motor = 284,
+      relational = 232,
+      social = 274
+    )
+    ## Task event files
+    fnames <- switch(task,
+      emotion = c("fear", "neut"), 
+      gambling = c("loss_event", "neut_event", "win_event"),
+      language = c("math", "story"),
+      motor = c("cue", "lf", "lh", "rf", "rh", "t"),
+      relational = c("match", "relation"),
+      social = c("mental", "rnd", "mental_resp", "other_resp")
+    )
+    fnames <- file.path("EVs", paste0(fnames, ".txt"))
+    ## Get the data sub-directory for this iteration
+    dir_data_ii <- file.path(dir_data, paste0("HCP_", TASK))
+    if (!test) { dir_data_ii <- file.path(dir_data_ii, "retest") }
+    dir_data_ii <- file.path(dir_data_ii, subject, "MNINonLinear/Results", fname_prefix)
+    ## Add the CIFTI file and movement regressors
+    fnames <- c(
+      paste0(fname_prefix, "_Atlas.dtseries.nii"), "Movement_Regressors.txt", fnames
+    )
+    ## Full file paths
+    fnames <- file.path(dir_data_ii, fnames)
+    
+    if (!dir.exists(dir_data_ii)) {
+      cat(task, ii_name, "\n\t", "Entire Directory", "\n\n")
+      missing[ii,task] <- 1
+    } else if (!all(file.exists(fnames))) {
+      cat(task, ii_name, "\n\t", paste(basename(fnames[!file.exists(fnames)])), "\n\n")
+      missing[ii,task] <- 2
+    }
+  }
+}
+
+saveRDS(missing, "0_MissingFiles.rds")
+
+apply(missing, 2, table)
+```

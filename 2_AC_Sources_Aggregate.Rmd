@@ -1,0 +1,104 @@
+---
+title: "Aggregate HCP Sources Results"
+author: "Damon Pham"
+date: "01/01/2021"
+output: html_document
+---
+
+```{r}
+# Setup ---------------------------------------------------------------------------------
+
+# Directories
+dir_data <- "/Users/Shared/Lab_Data"
+dir_project <- "/Users/ddpham/Desktop/HCP-AC"
+
+# Where the AC results were saved
+dir_ac1 <- file.path(dir_project, "AC1")
+dir_agg <- file.path(dir_project, "AC1_agg")
+
+# 45 HCP retest subjects
+subjects <- c(
+  103818, 187547,
+  105923, 192439,
+  111312, 194140,
+  114823, 195041,
+  115320, 200109,
+  122317, 200614,
+  125525, 204521,
+  130518, 250427,
+  135528, 287248,
+  137128, 341834,
+  139839, 433839,
+  143325, 562345,
+  144226, 599671,
+  146129, 601127,
+  149337, 627549,
+  149741, 660951,
+  151526, 662551,
+  158035, 783462,
+  169343, 859671,
+  172332, 861456,
+  175439, 877168,
+  177746, 917255,
+  185442
+)
+
+tasks <- c("emotion", "gambling", "language", "motor", "relational", "social")
+
+missing <- readRDS("0_MissingFiles.rds")
+missing[128,"emotion"] <- 3 #Truncated CIFTI
+```
+
+```{r}
+nVox <- 59412
+
+theVars <- list(
+  task=tasks,
+  subject=paste0("s", subjects),
+  acquisition=c("LR", "RL"), 
+  test=c("test", "retest"),
+  nreg=c("base", "rp", "hrfdt", "rp_hrfdt"),
+  vox=seq(nVox)
+)
+
+iters <- expand.grid(test=c(TRUE, FALSE), acquisition=c("LR", "RL"), subject=subjects)
+
+for (meas in c("var", "acf1", "ar6c", "ar6v", "aic")) {
+  cat(meas, "----------------\n")
+  
+  agg <- array(dim=vapply(theVars, length, 0))
+  dimnames(agg) <- theVars
+  dimnames(agg)[6] <- list(NULL)
+  
+  # Add these results.
+  if (meas=="aic") { aggFUN <- function(x){x$aic} } else { aggFUN <- function(x){x$z[,meas]} }
+  
+  time <- Sys.time()
+  for (task in tasks) {
+    cat(task, "\t")
+  
+    for (ii in seq(nrow(iters))) {
+      # Get AC results.
+      if (missing[ii,task] > 0) { next }
+      test <- iters[ii, "test"]
+      acquisition <- as.character(iters[ii, "acquisition"])
+      subject <- iters[ii, "subject"]
+      ii_name <- paste0(subject, "_", acquisition, ifelse(test, 1, 2))
+      ac_fname <- file.path(dir_ac1, task, paste0(ii_name, ".rds"))
+      ac <- readRDS(ac_fname)
+      
+      if ("const" %in% names(ac)) {
+        # Get voxel mask. (Some voxels were constant and so do not have results.)
+        out <- matrix(nrow=length(theVars$nreg), ncol=nVox)
+        for (nn in seq(length(theVars$nreg))) { out[nn, seq(nVox)[!ac$const[[nn]]]] <- aggFUN(ac[[nn]]) }
+        agg[task, paste0("s", subject), acquisition, ifelse(test, "test", "retest"),,] <- out
+      } else {
+        agg[task, paste0("s", subject), acquisition, ifelse(test, "test", "retest"),,] <- do.call(rbind, lapply(ac, aggFUN)) 
+      }
+    }
+    print(Sys.time() - time); time <- Sys.time()
+  }
+  
+  saveRDS(agg, file.path(dir_agg, paste0(meas, ".rds")))
+}
+```
