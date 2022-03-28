@@ -49,16 +49,16 @@ po/*~
 rsconnect/
 
 # Mine
-/AC1
-/AC1_agg
-/AC1_lm
-/AC1_lm2
+**/AC1
+**/AC1_agg
+**/AC1_lm
+**/AC1_lm2
 .Rhistory
 Icon?
 **/.DS_Store
-/AC1_ar6c_plots
+**/AC1_ar6c_plots
 /Archive
 /Archive2/AC1-OldVersion
-/Archive2/Plots
+**/Archive2/Plots
 /Plots
 **Rhistory
