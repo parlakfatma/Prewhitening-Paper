@@ -11,13 +11,13 @@ output: html_document
 roxygen2::roxygenize("/Users/ddpham/Documents/GitHub/gifti") # options() patch
 
 # Packages
-# install.packages("ciftiTools")
+# devtools::install_github("mandymejia/ciftiTools", "9.0") # install.packages("ciftiTools")
 library(ciftiTools)
-stopifnot(packageVersion("ciftiTools") >= "0.8.0")
+stopifnot(packageVersion("ciftiTools") >= "0.9.0")
 
 # devtools::install_github("mandymejia/BayesfMRI", "1.9")
-# library(BayesfMRI)
-roxygen2::roxygenize("/Users/ddpham/Documents/GitHub/BayesfMRI")
+# roxygen2::roxygenize("/Users/ddpham/Documents/GitHub/BayesfMRI")
+library(BayesfMRI)
 stopifnot(packageVersion("BayesfMRI") >= "0.1.9")
 
 # Directories
@@ -87,34 +87,42 @@ surfR_rr_fname <- resample_surf(
 )
 
 T_trunc_FUN <- function(t){round(t/4)} # (Anderson, 1983)
-
-# Hello!
 ```
 
 ```{r}
-iters <- expand.grid(test=c(TRUE, FALSE), acquisition=c("LR", "RL"), subject=subjects)
+iters <- expand.grid(
+  test=c(TRUE, FALSE), acquisition=c("LR", "RL"), subject=subjects, 
+  pw_FWHM=c(5, Inf), pw_order=c(0, 1, 3, 6)
+)
 
 time <- Sys.time()
-for (task in tasks) {
+for (task in rev(tasks)) {
 
   if (task %in% c("language", "social")) { next }
 
   TASK <- toupper(task); Task <- tools::toTitleCase(task)
   cat(Task, "---------------------------------------------------------------\n")
 
-  for (ii in seq(nrow(iters))) {
+  for (ii in rev(seq(nrow(iters)))) {
     
     # Prep ------------------------------------------------------------------------------
     # Get iteration info. 
     test <- iters[ii, "test"]
     acquisition <- as.character(iters[ii, "acquisition"])
     subject <- iters[ii, "subject"]
+    pw_FWHM <- iters[ii, "pw_FWHM"]
+    pw_order <- iters[ii, "pw_order"]
     ii_name <- paste0(subject, "_", acquisition, ifelse(test, 1, 2))
+    ii_name <- paste0(ii_name, paste0(
+      "_pwFWHM-", pw_FWHM, "_pwO-", pw_order
+    ))
     cat(ii_name, "\t")
 
     # Skip if missing or completed already.
-    # if (missing[ii,task] > 0) { cat("Missing data.\n"); next}
-    ac_fname <- file.path(dir_ac1, task, paste0(ii_name, "_pw.rds"))
+    missing_idx <- (missing$test == test) & (missing$acquisition == acquisition) & (missing$subject == subject)
+    missing_idx <- which(missing_idx); stopifnot(length(missing_idx)==1)
+    if (missing[missing_idx,task] > 0) { cat("Missing data.\n"); next}
+    ac_fname <- file.path(dir_ac1, task, paste0(ii_name, ".rds"))
     if (!dir.exists(dirname(ac_fname))) { dir.create(dirname(ac_fname)) }
     if (file.exists(ac_fname)) { cat("Done.\n"); next }
     cat("\n")
@@ -220,31 +228,21 @@ for (task in tasks) {
     #   b = BayesfMRI::nuisance_regression(cii, cbind(design, hrfdt))
     # )
     resids <- vector("list", 2)
-    names(resids) <- c("ar6_HRF", "ar6_dHRF")
-    # resids <- vector("list", 4)
-    # names(resids) <- c("ar0_HRF", "ar6_HRF", "ar0_dHRF", "ar6_dHRF")
-    # resids$ar0_HRF <- BayesGLM_cifti(
-    #   cii, onsets=events, Bayes=FALSE, TR=TR, resamp_res = NULL,
-    #   nuisance=rp, nuisance_include=c('drift'),
-    #   ar_order=0
-    # )
-    resids$ar6_HRF <- BayesGLM_cifti(
+    names(resids) <- paste0(paste0("ar", pw_order, "_"), c("HRF", "dHRF"))
+    resids[[1]] <- BayesGLM_cifti(
       cii, onsets=events, Bayes=FALSE, TR=TR, resamp_res = NULL,
       nuisance=rp, nuisance_include=c('drift'),
       surfL_fname=surfL_rr_fname, surfR_fname=surfR_rr_fname,
-      ar_order=6, ar_smooth=6
+      ar_order=pw_order, ar_smooth=pw_FWHM
     )
-    # resids$ar0_dHRF <- BayesGLM_cifti(
-    #   cii, onsets=events, Bayes=FALSE, TR=TR, resamp_res = NULL,
-    #   nuisance=rp, nuisance_include=c('drift','dHRF'),
-    #   ar_order=0
-    # )
-    resids$ar6_dHRF <- BayesGLM_cifti(
+    resids[[2]] <- BayesGLM_cifti(
       cii, onsets=events, Bayes=FALSE, TR=TR, resamp_res = NULL,
       nuisance=rp, nuisance_include=c('drift','dHRF'),
       surfL_fname=surfL_rr_fname, surfR_fname=surfR_rr_fname,
-      ar_order=6, ar_smooth=6
+      ar_order=pw_order, ar_smooth=pw_FWHM
     )
+
+    # Extract the residuals from the model objects.
     resids <- lapply(resids, function(rr){
       rbind(
         rr$GLMs_classical$cortexL$single_session$resids,
@@ -277,7 +275,7 @@ for (task in tasks) {
       cat("\t", names(out)[rr])
       out[[rr]] <- setNames(vector("list", 6), c("var", "aci", "acit", "ar6c", "ar6v", "aic"))
       resid <- resids[[rr]] # VxT?
-      out[[rr]]$var <- rowVars(resid)
+      out[[rr]]$var <- matrixStats::rowVars(resid)
       rr_acf <- apply(resid, 1, stats::acf, lag.max=T_-1, plot=FALSE, demean=FALSE)
       rr_acf <- do.call(rbind, lapply(rr_acf, function(x){as.numeric(x$acf)}))
       out[[rr]]$aci <- rowSums(rr_acf^2)

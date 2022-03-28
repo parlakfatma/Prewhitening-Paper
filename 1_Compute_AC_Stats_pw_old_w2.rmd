@@ -88,21 +88,21 @@ surfR_rr_fname <- resample_surf(
 
 T_trunc_FUN <- function(t){round(t/4)} # (Anderson, 1983)
 
-# Hello!
+# Hello 2!
 ```
 
 ```{r}
 iters <- expand.grid(test=c(TRUE, FALSE), acquisition=c("LR", "RL"), subject=subjects)
 
 time <- Sys.time()
-for (task in tasks) {
+for (task in rev(tasks)) {
 
   if (task %in% c("language", "social")) { next }
 
   TASK <- toupper(task); Task <- tools::toTitleCase(task)
   cat(Task, "---------------------------------------------------------------\n")
 
-  for (ii in seq(nrow(iters))) {
+  for (ii in rev(seq(nrow(iters)))) {
     
     # Prep ------------------------------------------------------------------------------
     # Get iteration info. 

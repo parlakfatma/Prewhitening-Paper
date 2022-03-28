@@ -1,0 +1,141 @@
+---
+title: "HCP Autocorrelation"
+author: "Damon Pham"
+date: "02/01/2022"
+output: html_document
+---
+
+```{r}
+# Setup ---------------------------------------------------------------------------------
+
+roxygen2::roxygenize("/Users/ddpham/Documents/GitHub/gifti") # options() patch
+
+# Packages
+# devtools::install_github("mandymejia/ciftiTools", "9.0") # install.packages("ciftiTools")
+library(ciftiTools)
+stopifnot(packageVersion("ciftiTools") >= "0.9.0")
+
+# devtools::install_github("mandymejia/BayesfMRI", "1.9")
+# roxygen2::roxygenize("/Users/ddpham/Documents/GitHub/BayesfMRI")
+# library(BayesfMRI)
+stopifnot(packageVersion("BayesfMRI") >= "0.1.9")
+
+# Directories
+dir_data <- "/Volumes/Lab_Data_Drive/data"
+dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
+ciftiTools.setOption("wb_path", "/Users/ddpham/Desktop/workbench")
+
+# Where to save the first part of this analysis (this script)
+dir_ac1 <- file.path(dir_project, "AC1")
+
+# 45 HCP retest subjects
+subjects <- c(
+  103818, 187547,
+  105923, 192439,
+  111312, 194140,
+  114823, 195041,
+  115320, 200109,
+  122317, 200614,
+  125525, 204521,
+  130518, 250427,
+  135528, 287248,
+  137128, 341834,
+  139839, 433839,
+  143325, 562345,
+  144226, 599671,
+  146129, 601127,
+  149337, 627549,
+  149741, 660951,
+  151526, 662551,
+  158035, 783462,
+  169343, 859671,
+  172332, 861456,
+  175439, 877168,
+  177746, 917255,
+  185442
+)
+
+# Remove subjects excluded from Fatma's original analysis.
+subjects_rm <- c(
+  144226, 627549,
+  660951, 169343,
+  177746
+)
+# 877168 has missing data for Language; see 0_Check
+subjects <- setdiff(subjects, subjects_rm)
+
+tasks <- c("emotion", "gambling", "language", "motor", "relational", "social")
+
+missing <- readRDS("0_MissingFiles.rds")
+missing[128,"emotion"] <- 3 #Truncated CIFTI
+
+TR <- .72
+
+resamp_res <- 6000
+surf_FWHM <- 6
+
+cii_tmp_r <- paste0(tempfile(),".r.dtseries.nii")
+cii_tmp_s <- paste0(tempfile(),".s.dtseries.nii")
+
+surfL_rr_fname <- resample_surf(
+  ciftiTools.files()$surf["left"], 
+  paste0(tempfile(), ".L.surf.gii"), resamp_res = resamp_res
+)
+surfR_rr_fname <- resample_surf(
+  ciftiTools.files()$surf["right"], 
+  paste0(tempfile(), ".R.surf.gii"), resamp_res = resamp_res
+)
+
+T_trunc_FUN <- function(t){round(t/4)} # (Anderson, 1983)
+```
+
+```{r}
+iters_old <- expand.grid(
+  test=c(TRUE, FALSE), acquisition=c("LR", "RL"), subject=subjects
+)
+
+iters <- expand.grid(
+  test=c(TRUE, FALSE), acquisition=c("LR", "RL"), subject=subjects, 
+  pw_FWHM=c(5, Inf), pw_order=c(0, 1, 3, 6)
+)
+
+for (task in tasks) {
+
+  if (task %in% c("language", "social")) { next }
+
+  TASK <- toupper(task); Task <- tools::toTitleCase(task)
+  cat(Task, "---------------------------------------------------------------\n")
+
+  for (ii in seq(nrow(iters_old))) {
+    
+    # Prep ------------------------------------------------------------------------------
+    # Get iteration info. 
+    test <- iters_old[ii, "test"]
+    acquisition <- as.character(iters_old[ii, "acquisition"])
+    subject <- iters_old[ii, "subject"]
+    ii_name <- paste0(subject, "_", acquisition, ifelse(test, 1, 2))
+    cat(ii_name, "\t")
+
+    # Skip if missing or completed already.
+    if (missing[ii,task] > 0) { cat("Missing data.\n"); next}
+    
+    # Rename non-prewhitened results.
+    ac_fname <- file.path(dir_ac1, task, paste0(ii_name, ".rds"))
+    if (!file.exists(ac_fname)) { stop("No results.\n"); next }
+    cat("\n")
+    file.rename(
+      ac_fname,
+      file.path(dir_ac1, task, paste0(ii_name, "_pwFWHM-", 5, "_pwO-", 0, ".rds"))
+    )
+    
+    # Rename prewhitened results.
+    acpw_fname <- file.path(dir_ac1, task, paste0(ii_name, "_pw.rds"))
+    if (!file.exists(acpw_fname)) { stop("No results.\n"); next }
+    cat("\n")
+    file.rename(
+      acpw_fname,
+      file.path(dir_ac1, task, paste0(ii_name, "_pwFWHM-", 5, "_pwO-", 6, ".rds"))
+    )
+  }
+}
+```

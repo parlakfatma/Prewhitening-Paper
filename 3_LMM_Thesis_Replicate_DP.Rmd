@@ -10,9 +10,8 @@ library(reshape2)
 library(lme4)
 
 # Directories
-dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper/code"
+dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
 
-# dir_ac1 <- file.path(dir_project, "AC1")
 dir_agg <- file.path(dir_project, "AC1_agg")
 dir_lm  <- file.path(dir_project, "AC1_lm2")
 
@@ -53,9 +52,9 @@ subjects_rm <- c(
 subjects <- setdiff(subjects, subjects_rm)
 
 tasks <- c("emotion", "gambling", "language", "motor") #, "relational", "social")
-# nVox <-  10578
-nVox <- 5
-# test
+# nVox <- 59412
+nVox <-  10578
+
 ```
 
 
@@ -63,7 +62,7 @@ nVox <- 5
 ```{r}
 time <- Sys.time()
 # for (meas in c("var", "acf1", "ar6c", "ar6v", "aic")) {
-for (meas in c("aci", "ar6c")) {
+for (meas in c("ar6c")) {
   cat(meas, "\t")
 
   # fixed_fx <- matrix(nrow=nVox, ncol=19) # 6 tasks + 6 for dHRF + 6 for motion + 1 for acquisition

@@ -101,7 +101,7 @@ for (task in tasks) {
     }
   }
 }
-
+missing <- cbind(iters, missing)
 saveRDS(missing, "0_MissingFiles.rds")
 
 apply(missing, 2, table)
