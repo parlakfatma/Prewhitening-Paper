@@ -61,7 +61,7 @@ nVox <-  10578
 ```{r}
 time <- Sys.time()
 # for (meas in c("var", "acf1", "ar6c", "ar6v", "aci")) {
-for (meas in c("aci", "ar6c")) {
+for (meas in c( "aci", "ar6c", "var", "acf1", "ar6v")) {
   cat(meas, "\t")
   
   # 9 rows for string the Fixed Effects (E, G, M, R, RL, dHRF, dHRF*G, DHRF*M, dHRF*R) 
@@ -77,8 +77,8 @@ for (meas in c("aci", "ar6c")) {
   dat <- readRDS(file.path(dir_agg, paste0(meas, ".rds")))
   df <- do.call(expand.grid, dimnames(dat)[rev(seq(length(dim(dat))-1))])
   
-  df$hrf_dt <-1- grepl("dHRF", df$nreg) # dHRF = 0, HRF = 1
-  df$pw <- 1- grepl("ar6", df$nreg) # pw = 0, non-pw = 1
+  df$hrf_dt <- grepl("dHRF", df$nreg) # dHRF = 1, HRF = 0
+  df$pw <-  grepl("ar6", df$nreg) # pw = 1, non-pw = 0
 
   for (vv in seq(nVox)) {
     print(vv)
@@ -87,8 +87,8 @@ for (meas in c("aci", "ar6c")) {
     
     # df_vv$dHRF <- 1 - grepl('hrfdt', df_vv$nreg) # 0 = dHRF included (baseline), 1 = dHRF not included
     
-    # df_vv$hrf_dt <- 1- grepl("dHRF", df_vv$nreg) # dHRF= 0, HRF = 1
-    # df_vv$pw <- 1-grepl("ar6", df_vv$nreg) # pw = 0, non-pw = 1
+    df_vv$hrf_dt <- 1- grepl("dHRF", df_vv$nreg) # dHRF= 0, HRF = 1
+    df_vv$pw <- 1 - grepl("ar6", df_vv$nreg) # pw = 0, non-pw = 1
 
     
     # subsetting the df_vv based on prewhitening
