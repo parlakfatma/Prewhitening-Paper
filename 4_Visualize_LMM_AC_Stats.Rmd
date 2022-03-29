@@ -8,210 +8,186 @@ output: html_document
 
 
 ```{r}
-# dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
-dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
+dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
+# dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
 
-# Where the AC results were saved
-# dir_ac1 <- file.path(dir_project, "AC1")
-# dir_agg <- file.path(dir_project, "AC1_agg")
-dir_code <- file.path(dir_project, "code")
-dir_lm <- file.path(dir_project,"code", "AC1_lm2")
-# dir_plt <- file.path(dir_project, "plot", "AC1_lm2_plots")
-dir_plt <- file.path(dir_project, "plot", "AC1_LMM_2_plots") # plots from the task- HRF interaction included LMM
-dir_plt_std <- file.path(dir_project, "plot", "AC1_RE_2_std_images")
+dir_agg <- file.path(dir_project, "AC1_agg")
+dir_lmm <- file.path(dir_project, "AC1_lmm")
+dir_plots <- file.path(dir_project, "AC1_plots")
+
+wb_path <- "~/Desktop/workbench"
+# wb_path <- "~/Documents/workbench"
+
+cii_tmp <- "/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
+# cii_tmp <- "data/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
 
 # Setup ---------------------------------------------------------------------------------
 
-# Packages
-## `lme4`: multilevel modeling
-# library(lme4)
-# stopifnot(packageVersion("lme4") >= "1.1.26")
-## CIFTI
 library(ciftiTools)
-stopifnot(packageVersion("ciftiTools") >= "0.2.0")
-ciftiTools.setOption("wb_path", "~/Documents/workbench")
-
-# Directories
-# dir_data <- "/Users/Shared/Lab_Data"
+stopifnot(packageVersion("ciftiTools") >= "0.8.0")
+ciftiTools.setOption("wb_path", wb_path)
 
 tasks <- c("emotion", "gambling", "language", "motor") # , "relational", "social")
-cii <- read_cifti(file.path(dir_project, "data/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"), resamp_res = 6000)
-# cii <- read_cifti("/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii", resamp_res = 6000)
-# cii <- select_xifti(cii, rep(1, 10))
-cii$meta$cifti["intent"] <- list(3006)
-cii$meta$cifti[c("time_start", "time_step", "time_unit")] <- NULL
+xii0 <- read_cifti(cii_tmp, idx=1, resamp_res = 6000)
+xii0 <- convert_xifti(xii0, "dscalar")
+
+n_fixed <- 9
+n_random <- 8
 ```
 
 ```{r}
-# nVox <- 59412
+# Get experimental conditions.
+iters <- expand.grid(
+  pw_FWHM=c(5, Inf), 
+  pw_order=c(0, 1, 3, 6),
+  meas=c( "aci", "ar6c", "var", "acf1", "ar6v")
+)
+iters <- subset(iters, meas=="aci")
+meas <- "aci" # temp
+iters_names <- paste0(meas, "_pwFWHM-", iters$pw_FWHM, "_pwO-", iters$pw_order)
+iters_names2 <- paste0("FWHM ", iters$pw_FWHM, ", order ", iters$pw_order)
 
-time <- Sys.time()
+# Read in all the data.
+dat <- vector("list", length(iters))
+for (ii in seq(nrow(iters))) {
+  pw_FWHM <- iters[ii, "pw_FWHM"]
+  pw_order <- iters[ii, "pw_order"]
+  meas <- iters[ii, "meas"]
   
-measures <- c("aci", "ar6c")
-zlim <- list(c(0, 2.8),
-             c(-0.15, 0 , 0.45))
-for (meas in seq(measures)) {
-  zlim_meas <- zlim[[meas]]
-  meas <- measures[meas]
-  cat(meas, "\t")
-  
-  # q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_FP.rds"))) # data without the HRF-task interaction
-  q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_2_FP.rds"))) # data with the HRF-task interaction
-  
- if(meas == "aci"){ ######################## for aci
-    zlim_ = list(cbind(array(c(1.44, 1.53),c(2,4)), # PW zlim for 4 tasks 
-                             c(-0.02, 0.02), ######## PW zlim for acq RL 
-                             c(-0.007, 0.02), ######## PW zlim for TD 
-                       array(c(-0.02, 0.04),c(2,3))),# PW zlim for 3task * TD
-                 cbind(array(c(1.44,  3.62),c(2,4)),  # nonPW zlim for 4 tasks 
-                             c(-0.60, 0.30),  ######## nonPW zlim for acq RL  
-                             c(-0.009, 0.6),  ######## nonPW zlim for TD 
-                       array(c(-0.3, 1.00 ),c(2,3))))# nonPW zlim for 3task * TD 
-  } else { ################################## for ar6c NEED TO BE FIXED!!
-    zlim_ = list(array(c(0, 0.026),c(2,4)), # zlim for the pw canHRF for 4 tasks
-                 array(c(0, 0.026),c(2,4)), # zlim for the pw TDcanHRF for 4 tasks
-                 array(c(0, 0.1),c(2,4)),   # zlim for the npw canHRF for 4 tasks
-                 array(c(0, 0.1),c(2,4)))   # zlim for the npw TDcanHRF for 4 tasks
-  }
-  
-  for(j in 1:dim(q$fixed_fx)[3]){ # loop over {pw, npw}
-    print(j)
-    cii <- newdata_xifti(cii, q$fixed_fx[,,j], colnames(q$fixed_fx))
-     for (ii in seq(colnames(q$fixed_fx))) {  # loop over fixed effect coefficients
-       view_xifti_surface(cii, idx=ii,  zlim = zlim_[[j]][,ii], 
-                          title=paste(meas, dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep=" "), 
-                          fname=file.path(dir_plt, meas, paste(dimnames(q$fixed_fx)[[3]][j], colnames(q$fixed_fx)[ii], sep="_"))) 
-     }
-  }
-  
-  
-  ##############################################################################
-  ############              RE's std dev                                ########
-  ##############################################################################
-  
-  q$var_cor <- q$var_cor[,1:8,] # to select only standard deviations of RE
-  # The following explanation for the if & else statement
-  # each array is zlim for combination(HRF&pw)
-  # We have 2 rows for lower & upper limits for zlim.
-  # We have 4 columns for each task's z lim.
-  if(meas == "aci"){ ######################## for aci
-    zlim_ = list(array(c(0, 0.08),c(2,8)),  # zlim for the pw RE's std
-                 array(c(0, 1),c(2,8)))    # zlim for the non-pw RE's std
-  } else { ################################## for ar6c
-    zlim_ = list(array(c(0, 0.026),c(2,4)), # zlim for the pw canHRF for 4 tasks
-                 array(c(0, 0.1),c(2,4)))   # zlim for the npw TDcanHRF for 4 tasks
-  }
-  
-
-  for(j in 1:dim(q$var_cor)[3]){
-    print(dimnames(q$var_cor)[[3]][j])
-    cii <- newdata_xifti(cii, q$var_cor[,,j], colnames(q$var_cor))
-     for (ii in seq(colnames(q$var_cor))) { 
-       # print(colnames(q$var_cor))
-       view_xifti_surface(cii, idx=ii, zlim = zlim_[[j]][,ii], 
-                          title=paste(meas, dimnames(q$var_cor)[[3]][j], colnames(q$var_cor)[ii], sep=" "), 
-                          fname=file.path(dir_plt_std, meas, paste(dimnames(q$var_cor)[[3]][j], colnames(q$var_cor)[ii], sep="_"))) 
-     }
-  }
-  
-  
-  # investigating the coefficient estimates' differences between HRF modeling in npw (AR6c)
-  # if(meas == "aci"){ zlim_ <- c(-0.21, 0, 0.21)}
-  # else{zlim_ <- c(-0.004, 0,  0.004)}
-  diff_std <- q$var_cor[,,3] - q$var_cor[,,4]
-  cii_diff_std <- newdata_xifti(cii, diff_std, colnames(q$var_cor))
-  for (ii in seq(colnames(q$var_cor))) { 
-       view_xifti_surface(cii_diff_std, idx=ii, zlim = zlim_,
-                          title = paste(meas,"TDHRF-canHRF", colnames(q$var_cor)[ii], sep=" "), 
-                          fname = file.path(dir_plt_std, meas, "diff",paste("npw", colnames(q$var_cor)[ii], sep="_")))
-  }
-  
-  # investigating the coefficient estimates' differences between pw and npw RE (ACI)
-  if(meas == "aci"){ zlim_ <- c(-0.03, 0.9)} else {zlim_ <- c(-0.004, 0,  0.004) } #AR6c zlims need to be fixed!!!
-  diff_std <- q$var_cor[,,2] - q$var_cor[,,1] # npw - pw
-  cii_diff_std <- newdata_xifti(cii, diff_std, colnames(q$var_cor))
-  for (ii in seq(colnames(q$var_cor))) { 
-       view_xifti_surface(cii_diff_std, idx=ii, zlim = zlim_,
-                          title = paste(meas,"npw-pw", colnames(q$var_cor)[ii], sep=" "), 
-                          fname = file.path(dir_plt_std, meas, "diff",paste("npw", colnames(q$var_cor)[ii], sep="_")))
-  }
-  
-  
-  cat("\n")
-  print(Sys.time() - time); time <- Sys.time()
+  q <- readRDS(
+    file.path(dir_lmm, paste0(meas, "_pwFWHM-", pw_FWHM, "_pwO-", pw_order, ".rds"))
+  )
+  names(q)[names(q) == "var_cor"] <- "random_fx" # [TO DO]: fix
+  dat[[ii]] <- q
 }
 
-
-# investigating the coefficient estimates' differences between models
-diff <- q$fixed_fx[,,4] - q$fixed_fx[,,3] # magnitude difference canHRF- TDcanHRF with no pw on both cases 
-diff <- melt(diff)
-ggplot(diff, aes(x = Var1, y = value, color = Var2)) + geom_line(alpha = 0.4) + facet_wrap(~Var2)
-
-# differences as images
-for (meas in c("ar6c")) {
-  cat(meas, "\t")
-  
-  q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_FP.rds")))
-  # nVox <- 10578
-  q$fixed_fx <- q$fixed_fx[1:10578,,]
-  
-  diff <- q$fixed_fx[,,4] - q$fixed_fx[,,3]
-  cii_diff <- newdata_xifti(cii, diff, colnames(q$fixed_fx))
-  for (ii in seq(colnames(q$fixed_fx))) { 
-       view_xifti_surface(cii_diff, idx=ii, zlim =c(0, 0.05),
-                          title = paste(meas,"canHRF-TDcanHRF", colnames(q$fixed_fx)[ii], sep=" "), 
-                          fname = file.path(dir_plt, paste(meas,"diff", colnames(q$fixed_fx)[ii], sep="_")))
-  }
-}
-
-
-
-
-# Hello Fatma! This is a surprise comment!
-
-# investigtaing the residuals' magnitude of LMM
-res_dat <- cbind(q$var_cor[,11,4], q$var_cor[,11,3])
-res_dat <- melt(res_dat, id = c("V1", "V2"))
-ggplot(res_dat, aes(x= Var1, y = value, color = Var2)) + geom_line()
-ggplot(res_dat, aes(x= Var1, y = value, color = as.factor(Var2))) + geom_line()
-ggplot(res_dat, aes(x= Var1, y = value, color = as.factor(Var2))) + geom_line(alpha = 0.4)
-ggplot(res_dat, aes(x= Var1, y = value, color = as.factor(Var2))) + geom_line("line")
- 
-# residuls as images
-for (meas in c("ar6c")) {
-  cat(meas, "\t")
-  q <- readRDS(file.path(dir_lm, paste0(meas, "LMM_FP.rds")))
-  # nVox <- 10578
-  q$var_cor <- q$var_cor[1:10578,,]
-    for(j in 1:dim(q$var_cor)[3]){
-      resids <- q$var_cor[,11,j]
-      cii_resids <- newdata_xifti(cii, resids, colnames(q$var_cor)[11])
-      view_xifti_surface(cii_resids, zlim= c(0,0.1),
-                          title=paste(meas, dimnames(q$var_cor)[[3]][j], colnames(q$var_cor)[11], sep=" "), 
-                          fname=file.path(dir_plt, paste(meas, dimnames(q$var_cor)[[3]][j], colnames(q$var_cor)[11], sep="_")))
-    }
-}
-
-
-
-
-
-
-
-
-dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
-dir_agg <- file.path(dir_project, "AC1_agg")
-dat <- readRDS(file.path(dir_agg, paste0("aci.rds")))
-df <- do.call(expand.grid, dimnames(dat)[rev(seq(length(dim(dat))-1))])
-df$hrf_dt <- grepl("dHRF", df$nreg)
-dat_vv <- dat[,,,,,1]
-df_vv <- melt(dat_vv, varnames=names(dimnames(dat_vv)))
-
-
-
-
+# Get coefficient names.
+names_fixed <- colnames(dat[[1]]$fixed_fx)
+names_random <- colnames(dat[[1]]$random_fx)[seq(n_random)]
 ```
 
+### Fixed Effects
+
+```{r eval=FALSE}
+# Aggregate fixed effects by coefficient, across experimental conditions.
+dat_fixed <- lapply(dat, function(x){x$fixed_fx})
+dat_fixed2 <- vector("list", n_fixed)
+for (nn in seq(n_fixed)) { 
+  dat_fixed2[[nn]] <- do.call(cbind, lapply(dat_fixed, function(x){ x <- x[,nn] }))
+  colnames(dat_fixed2[[nn]]) <- iters_names2
+}
+names(dat_fixed2) <- names_fixed
+
+# Plot each fixed effect.
+for (nn in seq(n_fixed)) {
+  print(names_fixed[nn])
+  xii_fx <- newdata_xifti(xii0, dat_fixed2[[nn]])
+  xii_fx$meta$cifti$names <- iters_names2
+  out_fname <- file.path(dir_plots, "fixed_fx", "aci", "zlim_free", names_fixed[nn])
+  plot(
+    xii_fx, idx=seq(8), fname=out_fname, 
+    together="idx", together_title=names_fixed[nn], 
+    title=xii_fx$meta$cifti$names
+  )
+}
+
+# Manually decide the `zlim` values.
+my_zlim_fe <- list(
+  fixed_task = c(1.5, 3.5),
+  fixed_RL = c(-.2, .2),
+  fixed_cHRF = c(-.3, .3),
+  fixed_task_cHRF = c(-.15, .15)
+)
+my_zlim2 <- c(
+  rep(my_zlim_fe[1], 4),
+  my_zlim_fe[2],
+  my_zlim_fe[3],
+  rep(my_zlim_fe[4], 3)
+)
+
+# Plot each fixed effect with the fixed zlim.
+for (nn in seq(n_fixed)) {
+  print(names_fixed[nn])
+  xii_fx <- newdata_xifti(xii0, dat_fixed2[[nn]])
+  xii_fx$meta$cifti$names <- iters_names
+  out_fname <- file.path(dir_plots, "fixed_fx", "aci", "zlim_fix", names_fixed[nn])
+  plot(
+    xii_fx, idx=seq(8), fname=out_fname, 
+    title=xii_fx$meta$cifti$names, zlim=my_zlim2[[nn]]
+  )
+}
 ```
 
+### Random Effects
+
+```{r}
+# Aggregate random effects by coefficient, across experimental conditions.
+dat_random <- lapply(dat, function(x){x$random_fx})
+dat_random2 <- vector("list", n_random)
+for (nn in seq(n_random)) { 
+  dat_random2[[nn]] <- do.call(cbind, lapply(dat_random, function(x){ x <- x[,nn] }))
+  colnames(dat_random2[[nn]]) <- iters_names2
+}
+names(dat_random2) <- names_random
+
+# Plot each random effect.
+for (nn in seq(n_random)) {
+  print(names_random[nn])
+  xii_fx <- newdata_xifti(xii0, dat_random2[[nn]])
+  xii_fx$meta$cifti$names <- iters_names2
+  out_fname <- file.path(dir_plots, "random_fx", "aci", "zlim_free", names_random[nn])
+  plot(
+    xii_fx, idx=seq(8), fname=out_fname, 
+    together="idx", together_title=names_random[nn], 
+    title=xii_fx$meta$cifti$names
+  )
+}
+
+# Manually decide the `zlim` values.
+my_zlim_re <- list(
+  random_task = c(0, .4),
+  random_cHRF = c(0, .1),
+  random_task_cHRF = c(0, .15)
+)
+my_zlim2 <- c(
+  rep(my_zlim_re[1], 4),
+  my_zlim_re[2],
+  rep(my_zlim_re[3], 3)
+)
+
+# Plot each random effect with the fixed zlim.
+for (nn in seq(n_random)) {
+  print(names_random[nn])
+  xii_fx <- newdata_xifti(xii0, dat_random2[[nn]])
+  xii_fx$meta$cifti$names <- iters_names
+  out_fname <- file.path(dir_plots, "random_fx", "aci", "zlim_fix", names_random[nn])
+  plot(
+    xii_fx, idx=seq(8), fname=out_fname, 
+    title=xii_fx$meta$cifti$names, zlim=my_zlim2[[nn]]
+  )
+}
+```
+
+### Differences
+
+```{r}
+dat_random3 <- lapply(dat_random2, function(x){-(x[,seq(3, 8)] - x[,1])})
+# Plot each random effect with the fixed zlim.
+for (nn in seq(n_random)) {
+  print(names_random[nn])
+  xii_fx <- newdata_xifti(xii0, dat_random3[[nn]])
+  xii_fx$meta$cifti$names <- iters_names[seq(3, 8)]
+  out_fname <- file.path(dir_plots, "random_fx", "aci", "diffs", "zlim_free", names_random[nn])
+  plot(
+    xii_fx, idx=seq(6), fname=out_fname, 
+    together="idx", together_title=names_random[nn], 
+    title=xii_fx$meta$cifti$names
+  )
+  out_fname <- file.path(dir_plots, "random_fx", "aci", "diffs", "zlim_fix", names_random[nn])
+  plot(
+    xii_fx, idx=seq(6), fname=out_fname,
+    title=xii_fx$meta$cifti$names, zlim=my_zlim2[[nn]]
+  )
+}
+```
 
