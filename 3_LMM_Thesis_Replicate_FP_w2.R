@@ -1,14 +1,11 @@
----
-title: "3_LMM_Thesis_Replicate_FP"
-author: "fatma parlak"
-date: "2/7/2022"
-output: html_document
----
-
-```{r}
+## ------------------------------------------------------------------------------------------------------------------------------------
 # Setup ---------------------------------------------------------------------------------
 library(reshape2)
 library(lme4)
+
+library(parallel)
+library(doParallel)
+library(foreach)
 
 # Directories
 dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper" # Mac Pro
@@ -61,57 +58,72 @@ missing <- readRDS("0_MissingFiles.rds")
 missing[128,"emotion"] <- 3 #Truncated CIFTI
 
 nVox <- 10578
-```
 
-```{r}
+## ------------------------------------------------------------------------------------------------------------------------------------
 iters <- expand.grid(
-  pw_FWHM=c(5, Inf), 
+  pw_FWHM=c(5, Inf),
   pw_order=c(0, 1, 3, 6),
   meas=c( "aci", "ar6c", "var", "acf1", "ar6v")
 )
 
 time <- Sys.time()
 
-for (ii in seq(length(iters))) {
-  
+#for (ii in rev(seq(nrow(iters)))) {
+for (ii in seq(8, 1)) {
+
   # Prep ------------------------------------------------------------------------------
-  # Get iteration info. 
+  # Get iteration info.
   pw_FWHM <- iters[ii, "pw_FWHM"]
   pw_order <- iters[ii, "pw_order"]
   meas <- iters[ii, "meas"]
-  
+
   out_fname <- file.path(dir_lmm, paste0(meas, "_pwFWHM-", pw_FWHM, "_pwO-", pw_order, ".rds"))
   if (file.exists(out_fname)) { next }
-  
+  cat(basename(out_fname))
+
   dat <- readRDS(file.path(dir_agg, paste0(meas, ".rds")))
   dat <- dat[,,,,as.character(pw_FWHM),as.character(pw_order),,]
-  
-  # 9 rows for string the Fixed Effects (E, G, M, R, RL, dHRF, dHRF*G, dHRF*M, dHRF*R) 
-  fixed_fx <- array(NA, dim= c(nVox, 9)) 
-  # 37 rows for storing Random Effect's std. dev. 
-  # [(8 for diagonal + (7*8)/2 for off-diagonals] + 1 for residual 
+
+  # 9 rows for string the Fixed Effects (E, G, M, R, RL, dHRF, dHRF*G, dHRF*M, dHRF*R)
+  fixed_fx <- array(NA, dim= c(nVox, 9))
+  # 37 rows for storing Random Effect's std. dev.
+  # [(8 for diagonal + (7*8)/2 for off-diagonals] + 1 for residual
   var_cor <- array(NA, dim = c(nVox, 37))
 
-  for (vv in seq(nVox)) {
-    print(vv)
+  cores <- parallel::detectCores()
+  nCores <- cores[1] - 8
+  cluster <- parallel::makeCluster(nCores, outfile="")
+  doParallel::registerDoParallel(cluster)
+
+  vv <- 1
+  dat_vv <- dat[,,,,,vv]
+  df_vv <- reshape2::melt(dat_vv, varnames=names(dimnames(dat_vv)))
+  df_vv$cHRF <- (df_vv$HRF=="HRF")
+  q <- lme4::lmer(value ~ -1 + task + acquisition + cHRF + task*cHRF  + (-1 + task*cHRF | subject) , data = df_vv)
+  fixed_fx[vv,] <- c(lme4::fixef(q))
+  var_cor[vv,] <- c((as.data.frame(lme4::VarCorr(q))$sdcor))  # 4*2 std + (7*8)/2 corr + 1 residual
+  colnames(fixed_fx) <- names(lme4::fixef(q))
+  colnames(var_cor) <- apply(as.data.frame(lme4::VarCorr(q))[,seq(3)], 1, paste, collapse="-")
+
+  merge_vox <- function(x){list(fixed_fx=do.call(rbind, lapply(x, `[[`, "fixed_fx")), var_cor=rbind(lapply(x, `[[`, "var_cor")))}
+  q <- foreach::foreach(vv = seq(2, nVox)) %dopar% {
+    if (vv %% 100 == 0) { print(vv) }
     dat_vv <- dat[,,,,,vv]
     df_vv <- reshape2::melt(dat_vv, varnames=names(dimnames(dat_vv)))
-    
     df_vv$cHRF <- (df_vv$HRF=="HRF")
-
     q <- lme4::lmer(value ~ -1 + task + acquisition + cHRF + task*cHRF  + (-1 + task*cHRF | subject) , data = df_vv)
-    fixed_fx[vv,] <- c(lme4::fixef(q))
-    var_cor[vv,] <- c((as.data.frame(lme4::VarCorr(q))$sdcor))  # 4*2 std + (7*8)/2 corr + 1 residual
-
-    if (vv == 1) {
-      colnames(fixed_fx) <- names(lme4::fixef(q))
-      colnames(var_cor) <- apply(as.data.frame(lme4::VarCorr(q))[,seq(3)], 1, paste, collapse="-")
-    }
-  }  
-
+    list(
+      fixed_fx=(lme4::fixef(q)),
+      var_cor=c((as.data.frame(lme4::VarCorr(q))$sdcor)) # 4*2 std + (7*8)/2 corr + 1 residual
+    )
+  }
+  fixed_fx[seq(2, nVox),] <- do.call(rbind, lapply(q, `[[`, "fixed_fx"))
+  var_cor[seq(2, nVox),] <- do.call(rbind, lapply(q, `[[`, "var_cor"))
   saveRDS(list(fixed_fx = fixed_fx, var_cor = var_cor), out_fname)
-  
+
+  stopCluster(cluster)
+
   cat("\n")
   print(Sys.time() - time); time <- Sys.time()
 }
-```
+
