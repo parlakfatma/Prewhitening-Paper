@@ -84,11 +84,13 @@ for (ii in seq(8, 1)) {
   dat <- readRDS(file.path(dir_agg, paste0(meas, ".rds")))
   dat <- dat[,,,,as.character(pw_FWHM),as.character(pw_order),,]
 
-  # 9 rows for string the Fixed Effects (E, G, M, R, RL, dHRF, dHRF*G, dHRF*M, dHRF*R)
+  # 9 rows for string the Fixed Effects (E, G, M, R, RL, E:HRF, G:dHRF, M:dHRF, R:dHRF)
   fixed_fx <- array(NA, dim= c(nVox, 9))
-  # 37 rows for storing Random Effect's std. dev.
-  # [(8 for diagonal + (7*8)/2 for off-diagonals] + 1 for residual
-  var_cor <- array(NA, dim = c(nVox, 37))
+  # 47 rows for storing Random Effect's std. dev.
+  # RE of dHRF: task = 36 [(8*9)/2 for diaogonal & its lower triangular]
+  # RE of task = 6 [(4*2)/2 for diagonal & its lower triangular]
+  # RE's residual = 1
+  var_cor <- array(NA, dim = c(nVox, 47))
 
   cores <- parallel::detectCores()
   nCores <- cores[1] - 8
@@ -98,8 +100,8 @@ for (ii in seq(8, 1)) {
   vv <- 1
   dat_vv <- dat[,,,,,vv]
   df_vv <- reshape2::melt(dat_vv, varnames=names(dimnames(dat_vv)))
-  df_vv$cHRF <- (df_vv$HRF=="HRF")
-  q <- lme4::lmer(value ~ -1 + task + acquisition + cHRF + task*cHRF  + (-1 + task*cHRF | subject) , data = df_vv)
+  df_vv$dHRF <- (df_vv$HRF=="dHRF")
+  q <- lme4::lmer(value ~ -1 + task + acquisition + dHRF:task  + (-1 + dHRF:task | subject) + (-1 + task | subject), data = df_vv)
   fixed_fx[vv,] <- c(lme4::fixef(q))
   var_cor[vv,] <- c((as.data.frame(lme4::VarCorr(q))$sdcor))  # 4*2 std + (7*8)/2 corr + 1 residual
   colnames(fixed_fx) <- names(lme4::fixef(q))
@@ -110,8 +112,8 @@ for (ii in seq(8, 1)) {
     if (vv %% 100 == 0) { print(vv) }
     dat_vv <- dat[,,,,,vv]
     df_vv <- reshape2::melt(dat_vv, varnames=names(dimnames(dat_vv)))
-    df_vv$cHRF <- (df_vv$HRF=="HRF")
-    q <- lme4::lmer(value ~ -1 + task + acquisition + cHRF + task*cHRF  + (-1 + task*cHRF | subject) , data = df_vv)
+    df_vv$dHRF <- (df_vv$HRF=="dHRF")
+    q <- lme4::lmer(value ~ -1 + task + acquisition + dHRF:task  + (-1 + dHRF:task | subject) + (-1 + task | subject), data = df_vv)
     list(
       fixed_fx=(lme4::fixef(q)),
       var_cor=c((as.data.frame(lme4::VarCorr(q))$sdcor)) # 4*2 std + (7*8)/2 corr + 1 residual
