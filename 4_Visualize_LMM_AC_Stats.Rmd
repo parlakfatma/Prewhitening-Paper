@@ -88,8 +88,10 @@ for (nn in seq(n_fixed)) {
   xii_fx$meta$cifti$names <- iters_names2
   out_fname <- file.path(dir_plots, "fixed_fx", "aci", "zlim_free", names_fixed[nn])
   plot(
-    xii_fx, idx=seq(8), fname=out_fname, 
-    together="idx", together_title=names_fixed[nn], 
+    xii_fx, idx=seq(8), 
+    fname=out_fname, 
+    together="idx", 
+    together_title=names_fixed[nn], 
     title=xii_fx$meta$cifti$names
   )
 }
