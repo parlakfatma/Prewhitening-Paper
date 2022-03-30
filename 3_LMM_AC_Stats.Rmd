@@ -11,9 +11,9 @@ library(reshape2)
 library(lme4)
 
 # Directories
-# dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper" # Mac Pro
+dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper" # Mac Pro
 # dir_project <- "G:/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper" # Damon's personal
-dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper/code" # Fatma's personal
+#dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper/code" # Fatma's personal
 # Where to save the first part of this analysis (this script)
 dir_agg <- file.path(dir_project, "AC1_agg")
 dir_lmm <- file.path(dir_project, "AC1_lmm")
