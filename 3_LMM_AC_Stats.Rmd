@@ -12,8 +12,8 @@ library(lme4)
 
 # Directories
 # dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper" # Mac Pro
-# dir_project <- "G:/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper" # Damon personal
-dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper/code" # Fatma personal
+# dir_project <- "G:/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper" # Damon's personal
+dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper/code" # Fatma's personal
 # Where to save the first part of this analysis (this script)
 dir_agg <- file.path(dir_project, "AC1_agg")
 dir_lmm <- file.path(dir_project, "AC1_lmm")
@@ -99,7 +99,7 @@ for (ii in seq(length(iters))) {
     
     df_vv$cHRF <- (df_vv$HRF=="HRF")
 
-    q <- lme4::lmer(value ~ -1 + task + acquisition + task:cHRF  + (-1 + cHRF:task | subject) , data = df_vv)
+    q <- lme4::lmer(value ~ -1 + task + acquisition + cHRF:task  + (-1 + cHRF:task | subject) , data = df_vv)
     fixed_fx[vv,] <- c(lme4::fixef(q))
     var_cor[vv,] <- c((as.data.frame(lme4::VarCorr(q))$sdcor))  # 4*2 std + (7*8)/2 corr + 1 residual
 
