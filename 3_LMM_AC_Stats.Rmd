@@ -65,9 +65,9 @@ nVox <- 10578
 
 ```{r}
 iters <- expand.grid(
-  pw_FWHM=c(5 ), # , Inf), 
-  pw_order=c(0 ), #, 1, 3, 6),
-  meas=c( "aci" ) #, "ar6c", "var", "acf1", "ar6v")
+  pw_FWHM=c(5, Inf), 
+  pw_order=c(0, 1, 3, 6),
+  meas=c( "aci", "ar6c", "var", "acf1", "ar6v")
 )
 
 time <- Sys.time()
