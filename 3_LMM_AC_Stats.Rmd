@@ -63,6 +63,7 @@ missing[128,"emotion"] <- 3 #Truncated CIFTI
 nVox <- 10578
 ```
 
+
 ```{r}
 iters <- expand.grid(
   pw_FWHM=c(5, Inf), 
