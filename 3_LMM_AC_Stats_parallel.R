@@ -84,13 +84,12 @@ for (ii in seq(8, 1)) {
   dat <- readRDS(file.path(dir_agg, paste0(meas, ".rds")))
   dat <- dat[,,,,as.character(pw_FWHM),as.character(pw_order),,]
 
-  # 9 rows for string the Fixed Effects (E, G, M, R, RL, E:HRF, G:dHRF, M:dHRF, R:dHRF)
+  # 9 rows for string the Fixed Effects (E, G, M, R, RL, E:dHRF, G:dHRF, M:dHRF, R:dHRF)
   fixed_fx <- array(NA, dim= c(nVox, 9))
-  # 47 rows for storing Random Effect's std. dev.
-  # RE of dHRF: task = 36 [(8*9)/2 for diaogonal & its lower triangular]
-  # RE of task = 6 [(4*2)/2 for diagonal & its lower triangular]
-  # RE's residual = 1
-  var_cor <- array(NA, dim = c(nVox, 47))
+  # 37 rows for storing Random Effect's std. dev.
+    # RE of dHRF: task & task = 36 [(8*9)/2 for diaogonal & its lower triangular]
+    # RE's residual = 1
+  var_cor <- array(NA, dim = c(nVox, 37))
 
   cores <- parallel::detectCores()
   nCores <- cores[1] - 8
