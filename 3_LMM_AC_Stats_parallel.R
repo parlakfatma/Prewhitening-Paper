@@ -103,7 +103,7 @@ for (ii in seq(8, 1)) {
   df_vv$dHRF <- (df_vv$HRF=="dHRF")
   q <- lme4::lmer(value ~ -1 + task + acquisition + dHRF:task  + (-1 + dHRF:task | subject) + (-1 + task | subject), data = df_vv)
   fixed_fx[vv,] <- c(lme4::fixef(q))
-  var_cor[vv,] <- c((as.data.frame(lme4::VarCorr(q))$sdcor))  # 4*2 std + (7*8)/2 corr + 1 residual
+  var_cor[vv,] <- c((as.data.frame(lme4::VarCorr(q))$sdcor))
   colnames(fixed_fx) <- names(lme4::fixef(q))
   colnames(var_cor) <- apply(as.data.frame(lme4::VarCorr(q))[,seq(3)], 1, paste, collapse="-")
 
@@ -116,7 +116,7 @@ for (ii in seq(8, 1)) {
     q <- lme4::lmer(value ~ -1 + task + acquisition + dHRF:task  + (-1 + dHRF:task | subject) + (-1 + task | subject), data = df_vv)
     list(
       fixed_fx=(lme4::fixef(q)),
-      var_cor=c((as.data.frame(lme4::VarCorr(q))$sdcor)) # 4*2 std + (7*8)/2 corr + 1 residual
+      var_cor=c((as.data.frame(lme4::VarCorr(q))$sdcor))
     )
   }
   fixed_fx[seq(2, nVox),] <- do.call(rbind, lapply(q, `[[`, "fixed_fx"))
