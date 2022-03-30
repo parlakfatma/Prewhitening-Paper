@@ -124,7 +124,7 @@ for (nn in seq(n_fixed)) {
 ```
 
 ### Random Effects
-
+#### dHRF: task
 ```{r}
 # Aggregate random effects by coefficient, across experimental conditions.
 dat_random <- lapply(dat, function(x){x$random_fx})
@@ -173,7 +173,7 @@ for (nn in seq(n_random)) {
 }
 ```
 
-### Differences
+#### differences (npw-pw)
 
 ```{r}
 dat_random3 <- lapply(dat_random2, function(x){-(x[,seq(3, 8)] - x[,1])})
@@ -196,3 +196,7 @@ for (nn in seq(n_random)) {
 }
 ```
 
+
+### Random Effects
+#### task
+#### differences (npw-pw)
