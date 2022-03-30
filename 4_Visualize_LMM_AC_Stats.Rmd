@@ -81,7 +81,7 @@ for (nn in seq(n_fixed)) {
 }
 names(dat_fixed2) <- names_fixed
 
-# Plot each fixed effect.
+# Plot each fixed effect  with free zlim.
 for (nn in seq(n_fixed)) {
   print(names_fixed[nn])
   xii_fx <- newdata_xifti(xii0, dat_fixed2[[nn]])
@@ -115,7 +115,7 @@ for (nn in seq(n_fixed)) {
   xii_fx$meta$cifti$names <- iters_names
   out_fname <- file.path(dir_plots, "fixed_fx", "aci", "zlim_fix", names_fixed[nn])
   plot(
-    xii_fx, idx=seq(8), fname=out_fname, 
+    xii_fx, idx = seq(8), fname=out_fname, 
     title=xii_fx$meta$cifti$names, zlim=my_zlim2[[nn]]
   )
 }
