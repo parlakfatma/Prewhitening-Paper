@@ -8,10 +8,10 @@ output: html_document
 
 
 ```{r}
-dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
-# dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
+# dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
+dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
 
-dir_agg <- file.path(dir_project, "AC1_agg")
+dir_agg <- file.path(dir_project, "AC1_agg") # [FP:we are nit calling this directory, we could remove this line]
 dir_lmm <- file.path(dir_project, "AC1_lmm")
 dir_plots <- file.path(dir_project, "AC1_plots")
 
@@ -43,6 +43,7 @@ iters <- expand.grid(
   meas=c( "aci", "ar6c", "var", "acf1", "ar6v")
 )
 iters <- subset(iters, meas=="aci")
+
 meas <- "aci" # temp
 iters_names <- paste0(meas, "_pwFWHM-", iters$pw_FWHM, "_pwO-", iters$pw_order)
 iters_names2 <- paste0("FWHM ", iters$pw_FWHM, ", order ", iters$pw_order)
