@@ -100,7 +100,7 @@ for (ii in seq(8, 1)) {
   dat_vv <- dat[,,,,,vv]
   df_vv <- reshape2::melt(dat_vv, varnames=names(dimnames(dat_vv)))
   df_vv$dHRF <- (df_vv$HRF=="dHRF")
-  q <- lme4::lmer(value ~ -1 + task + acquisition + dHRF:task  + (-1 + dHRF:task | subject) + (-1 + task | subject), data = df_vv)
+  q <- lme4::lmer(value ~ -1 + task + acquisition + dHRF:task  + (-1 + task + dHRF:task | subject), data = df_vv)
   fixed_fx[vv,] <- c(lme4::fixef(q))
   var_cor[vv,] <- c((as.data.frame(lme4::VarCorr(q))$sdcor))
   colnames(fixed_fx) <- names(lme4::fixef(q))
@@ -112,7 +112,7 @@ for (ii in seq(8, 1)) {
     dat_vv <- dat[,,,,,vv]
     df_vv <- reshape2::melt(dat_vv, varnames=names(dimnames(dat_vv)))
     df_vv$dHRF <- (df_vv$HRF=="dHRF")
-    q <- lme4::lmer(value ~ -1 + task + acquisition + dHRF:task  + (-1 + dHRF:task | subject) + (-1 + task | subject), data = df_vv)
+    q <- lme4::lmer(value ~ -1 + task + acquisition + dHRF:task  + (-1 + task + dHRF:task | subject), data = df_vv)
     list(
       fixed_fx=(lme4::fixef(q)),
       var_cor=c((as.data.frame(lme4::VarCorr(q))$sdcor))
