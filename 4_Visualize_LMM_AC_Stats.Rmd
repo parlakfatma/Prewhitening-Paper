@@ -123,6 +123,8 @@ for (nn in seq(n_fixed)) {
 }
 ```
 
+
+# IMPORTANT:  directory structure for RE has changed from random_fx/aci to random_fx/dHRF_task/aci !
 ### Random Effects
 #### dHRF: task
 ```{r}
