@@ -1,22 +1,28 @@
 ---
-title: "3_visualize_ar6c_FP"
+title: "4_visualize_avgACI_FP"
 author: "fatma parlak"
 date: "2/10/2022"
 output: html_document
 ---
 
 ```{r}
+# Damon's directories
+# dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper" # Damon's personal
+# dir_agg <- file.path(dir_project, "AC1_agg")
+# dir_plots <- file.path(dir_project, "plots_avgACI")
+# dir_lmm <- file.path(dir_project, "AC1_lmm")
+# dir_plots <- file.path(dir_project, "plots_lmm")
+# wb_path <- "~/Desktop/workbench" 
+
+# Lab's directories
+# wb_path <- "~/../Desktop/fMRI/workbench" 
 # dir_project <- "G:/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
-dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
-# dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
 
-dir_agg <- file.path(dir_project, "AC1_agg")
-dir_lmm <- file.path(dir_project, "AC1_lmm")
-dir_plots <- file.path(dir_project, "plots_lmm")
-
-# wb_path <- "~/../Desktop/fMRI/workbench"
-wb_path <- "~/Desktop/workbench"
-# wb_path <- "~/Documents/workbench"
+# Fatma's directories
+dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
+dir_agg <- file.path(dir_project, "AC1_agg") 
+dir_plots <- file.path(dir_project, "plots_avgACI")
+wb_path <- "~/Documents/workbench" 
 
 # cii_tmp <- "/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
 cii_tmp <- "data/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
