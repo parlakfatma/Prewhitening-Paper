@@ -20,12 +20,12 @@ output: html_document
 
 # Fatma's directories
 dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
-dir_agg <- file.path(dir_project, "AC1_agg") 
-dir_plots <- file.path(dir_project, "plots_avgACI")
+dir_agg <- file.path(dir_project, "code", "AC1_agg") 
+dir_plots <- file.path(dir_project, "code", "plots_avgACI")
 wb_path <- "~/Documents/workbench" 
 
 # cii_tmp <- "/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
-cii_tmp <- "data/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
+cii_tmp <- file.path(dir_project,"data/tfMRI_GAMBLING_LR_Atlas.dtseries.nii")
 
 # Setup ---------------------------------------------------------------------------------
 
