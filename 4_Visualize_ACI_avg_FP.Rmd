@@ -1,5 +1,5 @@
 ---
-title: "4_visualize_avgACI_FP"
+title: "scatter_plots_avgACI"
 author: "fatma parlak"
 date: "2/10/2022"
 output: html_document
@@ -22,325 +22,38 @@ output: html_document
 dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
 dir_agg <- file.path(dir_project, "code", "AC1_agg") 
 dir_plots <- file.path(dir_project, "code", "plots_avgACI")
-wb_path <- "~/Documents/workbench" 
 
-# cii_tmp <- "/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
-cii_tmp <- file.path(dir_project,"data/tfMRI_GAMBLING_LR_Atlas.dtseries.nii")
 
 # Setup ---------------------------------------------------------------------------------
-
-library(ciftiTools)
-stopifnot(packageVersion("ciftiTools") >= "0.8.0")
-ciftiTools.setOption("wb_path", wb_path)
-
-tasks <- c("emotion", "gambling", "relational", "motor") # , "relational", "social")
-xii0 <- read_cifti(cii_tmp, idx=1, resamp_res = 6000)
-xii0 <- convert_xifti(xii0, "dscalar")
-
-n <- list(fixed=9, random=8)
-
-all_meas <- c("aci", "ar6c", "var", "acf1", "ar6v")
+library(ggplot2)
 ```
 
-# Average ACI for each task
+# Average ACI for each task, pw_FWHM, pw_order, HRF
 
 ```{r}
 all_aci <- readRDS(file.path(dir_agg, "aci.rds"))
-all_aci <- apply(all_aci, c(1,5,6,7,8), mean)
-all_aci[,,,"dHRF",] <- all_aci[,,,"dHRF",] - all_aci[,,,"HRF",]
+all_aci <- apply(all_aci, c(1,5,6,7), mean)
+# dim(all_aci) # task 4, pw_FWHM 2, pw_order 4, HRF 2
 
-iters <- expand.grid(
-  task=c(tasks, "all"),
-  HRF=c("HRF", "dHRF")
-)
+all_aci2 <- array(dim=dim(all_aci) + c(1,0,0,0)) # adding an extra dimension to task
+all_aci2[seq(4),,,] <- all_aci # save the calculated avg of ACI for each task from all_aci except the extra dimension
+all_aci2[5,,,] <- colMeans(all_aci) # the extra dimension takes values of averaged values all tasks
+dimnames_aci2 <- dimnames(all_aci) # using the same dimension names with the all_aci
+dimnames_aci2$task <- c(dimnames_aci2$task, "all") # needed a name for the extra dimension 
+dimnames(all_aci2) <- dimnames_aci2
 
-zlim <- list(
-  HRF = c(1, 3),
-  dHRF = c(-.2, .2)
-)
+iters <- do.call(expand.grid, dimnames(all_aci2)) # doing the same thing with the previously written code but shorter
+df_aci <- data.frame(iters)
+df_aci$avgACI <- c(all_aci2)
 
-for (ii in seq(nrow(iters))) {
-  task <- as.character(iters[ii, "task"])
-  HRF <- as.character(iters[ii, "HRF"])
-  
-  if (task=="all") {
-    aci <- colMeans(all_aci[,,,HRF,])
-  } else {
-    aci <- all_aci[task,,,HRF,]
-  }
-  
-  iters_names2 <- c(outer(
-    paste0("FWHM ", dimnames(aci)[[1]]),
-    paste0(", order ", dimnames(aci)[[2]]),
-    paste0
-  ))
-  iters_names3 <- c(outer(
-    paste0("FWHM-", dimnames(aci)[[1]]),
-    paste0("_order-", dimnames(aci)[[2]]),
-    paste0
-  ))
-  n_pw <- dim(aci)[1]*dim(aci)[2]
-  dim(aci) <- c(n_pw, dim(aci)[3])
-  # dimnames(aci)[[1]] <- iters_names2
-
-  xii <- newdata_xifti(xii0, t(aci))
-  xii$meta$cifti$names <- iters_names2
-  xii <- select_xifti(xii, c(1,3,5,7,2,4,6,8))
-  
-  # Composite
-  out_fname <- file.path("plots_ACI", "comp", paste0(task, "_", HRF))
-  plot(
-    xii, idx=seq(8), fname=out_fname, zlim=zlim[[HRF]],
-    together="idx", together_title=paste0(task, ", ", HRF), together_ncol=4,
-    title=xii$meta$cifti$names
-  )
-  
-  # Individual
-  out_fname <- file.path(
-    "plots_ACI", "indiv",
-    paste0(task, "_", HRF, "__", iters_names3)
-  )
-  plot(
-    xii, idx=seq(8), fname=out_fname, zlim=zlim[[HRF]],
-  )
-  out_fname <- file.path(
-    "plots_ACI", "indiv_1quad",
-    paste0(task, "_", HRF, "__", iters_names3)
-  )
-  plot(
-    xii, idx=seq(8), fname=out_fname, zlim=zlim[[HRF]],
-    view="lateral", hemisphere="left"
-  )
-}
 ```
 
-# LMM model
 
-### Auto zlim
-
+# Visualize the average ACI 
 ```{r}
-as_my_xii <- function(dat, my_names=iters_names2, my_idx=c(1,3,5,7,2,4,6,8)){
-  xii <- newdata_xifti(xii0, dat)
-  xii$meta$cifti$names <- my_names
-  xii <- select_xifti(xii, my_idx)
-  xii
-}
+ggplot(data = df_aci, aes())
 
-for (meas in all_meas) {
-  cat("Measure: ", meas, " ~~~~~~~~~~~~~~~~~~~~\n")
-  cat("Reading in data.\n")
-  
-  if (meas != "aci") {next}
-  
-  # Get iters.
-  iters <- expand.grid(
-    pw_FWHM=c(5, Inf), 
-    pw_order=c(0, 1, 3, 6)
-  )
-  iters_names <- paste0(meas, "_pwFWHM-", iters$pw_FWHM, "_pwO-", iters$pw_order)
-  iters_names2 <- paste0("FWHM ", iters$pw_FWHM, ", order ", iters$pw_order)
-  iters_names3 <- paste0("Diff ", iters_names2[seq(3,length(iters_names2))])
 
-  # Read in the data.
-  dat <- vector("list", length(iters))
-  for (ii in seq(nrow(iters))) {
-    pw_FWHM <- iters[ii, "pw_FWHM"]
-    pw_order <- iters[ii, "pw_order"]    
-    dat[[ii]] <- readRDS(
-      file.path(
-        dir_lmm, paste0(meas, "_pwFWHM-", pw_FWHM, "_pwO-", pw_order, ".rds")
-      )
-    )
-  }
 
-  # Get coefficient names.
-  names <- list(
-    fixed = colnames(dat[[1]]$fixed_fx),
-    random = colnames(dat[[1]]$random_fx)[seq(n$random)]
-  )
 
-  for (what in c("fixed", "random")) {
-    cat(what, " effects.\n")
-    # Subset the data.
-    wdat <- lapply(dat, function(x){x[[paste0(what, "_fx")]]})
-    wdat2 <- vector("list", n[[what]])
-    for (nn in seq(n[[what]])) { 
-      wdat2[[nn]] <- do.call(cbind, lapply(wdat, function(x){ x <- x[,nn] }))
-      colnames(wdat2[[nn]]) <- iters_names2
-    }
-    names(wdat2) <- names[[what]]
-    wdat3 <- lapply(wdat2, function(x){-(x[,seq(3, n$random)] - x[,1])})
-
-    # Plot.
-    for (nn in seq(n[[what]])) {
-      print(names[[what]][nn])
-      xii <- as_my_xii(wdat2[[nn]])
-      out_fname <- file.path(
-        dir_plots, meas, what, 
-        "zlim_auto", "comp", names[[what]][nn]
-      )
-      plot(
-        xii, idx=seq(ncol(xii)), fname=out_fname,
-        together="idx", together_title=names[[what]][nn], together_ncol=4,
-        title=xii$meta$cifti$names
-      )
-      
-      if (what == "random") {
-        # Differences of random effects
-        xii <- as_my_xii(wdat3[[nn]], my_names=iters_names3, my_idx=c(1,3,5,2,4,6))
-        out_fname <- file.path(
-          dir_plots, meas, what, 
-          "zlim_auto", "comp_diff", names[[what]][nn]
-        )
-        plot(
-          xii, idx=seq(ncol(xii)), fname=out_fname, 
-          together="idx", together_title=names[[what]][nn], together_ncol=3,
-          title=xii$meta$cifti$names
-        )
-      }
-    }
-    cat("\n")
-  }
-  cat("\n\n")
-}
-```
-
-### Manually select the zlims
-
-```{r}
-# Manually decide the `zlim` values.
-my_zlim <- list(
-  aci = list(
-    fixed = list(
-      task = c(1, 3),
-      RL = c(-.2, .2),
-      task_dHRF = c(-.3, .3)
-    ),
-    random = list(
-      task = c(0, .5),
-      task_dHRF = c(0, .15)
-    ),
-    random_diff = list(
-      task = c(-.5, .5),
-      task_dHRF = c(-.15, .15)
-    )
-  )
-)
-
-my_zlim2 <- lapply(my_zlim, function(x){
-  list(
-    fixed = c(
-      rep(x$fixed[1], 4),
-      x$fixed[2],
-      rep(x$fixed[3], 4)
-    ),
-    random = c(
-      rep(x$random[1], 4),
-      rep(x$random[2], 4)
-    )
-  )
-})
-```
-
-### Re-run with manual zlims
-
-```{r}
-for (meas in all_meas) {
-  cat("Measure: ", meas, " ~~~~~~~~~~~~~~~~~~~~\n")
-  cat("Reading in data.\n")
-  
-  if (meas != "aci") {next}
-  
-  # Get iters.
-  iters <- expand.grid(
-    pw_FWHM=c(5, Inf), 
-    pw_order=c(0, 1, 3, 6)
-  )
-  iters_names <- paste0(meas, "_pwFWHM-", iters$pw_FWHM, "_pwO-", iters$pw_order)
-  iters_names2 <- paste0("FWHM ", iters$pw_FWHM, ", order ", iters$pw_order)
-  iters_names3 <- paste0("Diff ", iters_names2[seq(3,length(iters_names2))])
-
-  # Read in the data.
-  dat <- vector("list", length(iters))
-  for (ii in seq(nrow(iters))) {
-    pw_FWHM <- iters[ii, "pw_FWHM"]
-    pw_order <- iters[ii, "pw_order"]    
-    dat[[ii]] <- readRDS(
-      file.path(
-        dir_lmm, paste0(meas, "_pwFWHM-", pw_FWHM, "_pwO-", pw_order, ".rds")
-      )
-    )
-  }
-
-  # Get coefficient names.
-  names <- list(
-    fixed = colnames(dat[[1]]$fixed_fx),
-    random = colnames(dat[[1]]$random_fx)[seq(n$random)]
-  )
-
-  for (what in c("fixed", "random")) {
-    cat(what, " effects.\n")
-    # Subset the data.
-    wdat <- lapply(dat, function(x){x[[paste0(what, "_fx")]]})
-    wdat2 <- vector("list", n[[what]])
-    for (nn in seq(n[[what]])) { 
-      wdat2[[nn]] <- do.call(cbind, lapply(wdat, function(x){ x <- x[,nn] }))
-      colnames(wdat2[[nn]]) <- iters_names2
-    }
-    names(wdat2) <- names[[what]]
-    wdat3 <- lapply(wdat2, function(x){-(x[,seq(3, n$random)] - x[,1])})
-
-    # Plot.
-    for (nn in seq(n[[what]])) {
-      print(names[[what]][nn])
-      xii <- as_my_xii(wdat2[[nn]])
-      # # Composite
-      # out_fname <- file.path(
-      #   dir_plots, meas, what, 
-      #   "zlim_set", "comp", names[[what]][nn]
-      # )
-      # plot(
-      #   xii, idx=seq(ncol(xii)), fname=out_fname,
-      #   zlim=my_zlim2[[meas]][[what]][[nn]],
-      #   together="idx", together_title=names[[what]][nn], together_ncol=4,
-      #   title=xii$meta$cifti$names
-      # )
-      # # Individual
-      # out_fname <- file.path(
-      #   dir_plots, meas, what, 
-      #   "zlim_set", "indiv", names[[what]][nn]
-      # )
-      # plot(
-      #   xii, idx=seq(ncol(xii)), fname=out_fname, 
-      #   zlim=my_zlim2[[meas]][[what]][[nn]]
-      # )
-      
-      if (what == "random") {
-        # Differences of random effects
-        xii <- as_my_xii(wdat3[[nn]], my_names=iters_names3, my_idx=c(1,3,5,2,4,6))
-        out_fname <- file.path(
-          dir_plots, meas, what, 
-          "zlim_set", "comp_diff", names[[what]][nn]
-        )
-        plot(
-          xii, idx=seq(ncol(xii)), fname=out_fname, 
-          zlim=my_zlim2[[meas]][["random_diff"]][[nn]],
-          together="idx", together_title=names[[what]][nn], together_ncol=3,
-          title=xii$meta$cifti$names
-        )
-        # Individual
-        out_fname <- file.path(
-          dir_plots, meas, what, 
-          "zlim_set", "indiv_diff", names[[what]][nn]
-        )
-        plot(
-          xii, idx=seq(ncol(xii)), fname=out_fname, 
-          zlim=my_zlim2[[meas]][["random_diff"]][[nn]]
-        )
-      }
-    }
-    cat("\n")
-  }
-  cat("\n\n")
-}
 ```
