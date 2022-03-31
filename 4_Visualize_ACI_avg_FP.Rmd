@@ -26,6 +26,7 @@ dir_plots <- file.path(dir_project, "code", "plots_avgACI")
 
 # Setup ---------------------------------------------------------------------------------
 library(ggplot2)
+library(dplyr)
 ```
 
 # Average ACI for each task, pw_FWHM, pw_order, HRF
@@ -39,7 +40,7 @@ all_aci2 <- array(dim=dim(all_aci) + c(1,0,0,0)) # adding an extra dimension to 
 all_aci2[seq(4),,,] <- all_aci # save the calculated avg of ACI for each task from all_aci except the extra dimension
 all_aci2[5,,,] <- colMeans(all_aci) # the extra dimension takes values of averaged values all tasks
 dimnames_aci2 <- dimnames(all_aci) # using the same dimension names with the all_aci
-dimnames_aci2$task <- c(dimnames_aci2$task, "all") # needed a name for the extra dimension 
+dimnames_aci2$task <- c(dimnames_aci2$task, "all_task") # needed a name for the extra dimension 
 dimnames(all_aci2) <- dimnames_aci2
 
 iters <- do.call(expand.grid, dimnames(all_aci2)) # doing the same thing with the previously written code but shorter
@@ -51,9 +52,14 @@ df_aci$avgACI <- c(all_aci2)
 
 # Visualize the average ACI 
 ```{r}
-ggplot(data = df_aci, aes())
 
-
-
+ggplot(data = df_aci, aes(x = pw_order, y = avgACI, color = HRF)) +
+            geom_point() +
+            facet_grid(pw_FWHM~task) +
+            theme_light()
+ggsave("avgACI.png")
 
 ```
+
+
+
