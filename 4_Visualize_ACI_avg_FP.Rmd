@@ -52,33 +52,37 @@ df_aci$avgACI <- c(all_aci2)
 
 # Visualize the average ACI 
 ```{r}
-
-ggplot(data = df_aci, aes(x = pw_order, y = avgACI, color = HRF)) +
-            geom_point() +
-            facet_grid(pw_FWHM~task) +
-            theme_light()
-ggsave("avgACI.png")
-
-
+require(ggplot2)
 df_aci_all <- df_aci %>% filter(task == "all_task")
+
 df_aci_local <- df_aci_all %>% filter(pw_FWHM == "5")
-df_aci_local$pw_FWHM <- "localPW"
-
+df_aci_local$pw_FWHM <- "local"
 df_aci_global <- df_aci_all %>% filter(pw_FWHM == "Inf")
-df_aci_global$pw_FWHM <- "globalPW"
-df_aci <- rbind(df_aci_local, df_aci_global)
+df_aci_global$pw_FWHM <- "global"
+df_aci_all <- rbind(df_aci_local, df_aci_global)
 
+df_aci_c <- df_aci_all %>% filter(HRF == "HRF")
+df_aci_c$HRF <- "canonical"
+df_aci_t <- df_aci_all %>% filter(HRF == "dHRF")
+df_aci_t$HRF <- "canonical with its TD"
+df_aci_all <- rbind(df_aci_c, df_aci_t)
+df_aci <- df_aci_all
 
-ggplot(data = df_aci, aes(x = pw_order, y = avgACI, color = pw_FWHM) )+
-            geom_point() + facet_grid(~HRF) +
-            theme_light()
-ggsave("avgACI.png")
-
-ggplot(data = df_aci, aes(x = pw_order, y = avgACI, color = pw_FWHM, shape = HRF) )+
-     geom_point(size = 10) +
-     scale_shape_manual(values=c(21,22)) +
-     theme_light()
-ggsave("avgACI2.png")
+df_aci$groups <- paste0(df_aci$pw_FWHM, "_", df_aci$HRF) # combination of pw_FWHM and HRF to connect the dots
+ggplot(data = df_aci, aes(x = pw_order, y = avgACI, color = pw_FWHM, shape = HRF, group=groups))+
+     geom_point(size = 4) + lims(y = c(1.4,2))  + geom_line() +
+     scale_shape_manual(values=c(16,22)) +
+     labs(title = "Averaged ACI magnitudes comparison with AR model order",
+          y = "Averaged ACI", x = "AR model order") +
+     labs(color = "smoothing")  +
+     theme_bw() +
+     theme(axis.title = element_text(family = "Courier", size =(15)),
+           axis.text = element_text(family = "Courier", size =(13)),
+           legend.title = element_text(family = "Courier", face = "bold",size =(10)),
+           legend.text = element_text(family = "Courier", size =(9)),
+           legend.position = "bottom")
+  
+ggsave("avgACI4.png")
 
 ```
 
