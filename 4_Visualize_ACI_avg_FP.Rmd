@@ -33,19 +33,19 @@ library(dplyr)
 
 ```{r}
 all_aci <- readRDS(file.path(dir_agg, "aci.rds"))
-all_aci <- apply(all_aci, c(1,5,6,7), mean)
-# dim(all_aci) # task 4, pw_FWHM 2, pw_order 4, HRF 2
+all_aci <- apply(all_aci, c(5,6,7), mean)
+# dim(all_aci) # pw_FWHM 2, pw_order 4, HRF 2
 
-all_aci2 <- array(dim=dim(all_aci) + c(1,0,0,0)) # adding an extra dimension to task
-all_aci2[seq(4),,,] <- all_aci # save the calculated avg of ACI for each task from all_aci except the extra dimension
-all_aci2[5,,,] <- colMeans(all_aci) # the extra dimension takes values of averaged values all tasks
-dimnames_aci2 <- dimnames(all_aci) # using the same dimension names with the all_aci
-dimnames_aci2$task <- c(dimnames_aci2$task, "all_task") # needed a name for the extra dimension 
-dimnames(all_aci2) <- dimnames_aci2
+# all_aci2 <- array(dim=dim(all_aci) + c(1,0,0,0)) # adding an extra dimension to task
+# all_aci2[seq(4),,,] <- all_aci # save the calculated avg of ACI for each task from all_aci except the extra dimension
+# all_aci2[5,,,] <- colMeans(all_aci) # the extra dimension takes values of averaged values all tasks
+# dimnames_aci2 <- dimnames(all_aci) # using the same dimension names with the all_aci
+# dimnames_aci2$task <- c(dimnames_aci2$task, "all_task") # needed a name for the extra dimension 
+# dimnames(all_aci2) <- dimnames_aci2
 
-iters <- do.call(expand.grid, dimnames(all_aci2)) # doing the same thing with the previously written code but shorter
+iters <- do.call(expand.grid, dimnames(all_aci)) # doing the same thing with the previously written code but shorter
 df_aci <- data.frame(iters)
-df_aci$avgACI <- c(all_aci2)
+df_aci$avgACI <- c(all_aci)
 
 ```
 
@@ -53,26 +53,49 @@ df_aci$avgACI <- c(all_aci2)
 # Visualize the average ACI 
 ```{r}
 require(ggplot2)
-df_aci_all <- df_aci %>% filter(task == "all_task")
+# df_aci_all <- df_aci %>% filter(task == "all_task")
 
-df_aci_local <- df_aci_all %>% filter(pw_FWHM == "5")
-df_aci_local$pw_FWHM <- "local"
-df_aci_global <- df_aci_all %>% filter(pw_FWHM == "Inf")
-df_aci_global$pw_FWHM <- "global"
-df_aci_all <- rbind(df_aci_local, df_aci_global)
+# df_aci_local <- df_aci_all %>% filter(pw_FWHM == "5")
+# df_aci_local$pw_FWHM <- "local"
+# df_aci_global <- df_aci_all %>% filter(pw_FWHM == "Inf")
+# df_aci_global$pw_FWHM <- "global"
+# df_aci_all <- rbind(df_aci_local, df_aci_global)
 
-df_aci_c <- df_aci_all %>% filter(HRF == "HRF")
+# df_aci_c <- df_aci_all %>% filter(HRF == "HRF")
+# df_aci_c$HRF <- "canonical"
+# df_aci_t <- df_aci_all %>% filter(HRF == "dHRF")
+# df_aci_t$HRF <- "canonical with its TD"
+# df_aci_all <- rbind(df_aci_c, df_aci_t)
+# df_aci <- df_aci_all
+
+df_aci_c <- df_aci %>% filter(HRF == "HRF")
 df_aci_c$HRF <- "canonical"
-df_aci_t <- df_aci_all %>% filter(HRF == "dHRF")
+df_aci_t <- df_aci %>% filter(HRF == "dHRF")
 df_aci_t$HRF <- "canonical with its TD"
-df_aci_all <- rbind(df_aci_c, df_aci_t)
-df_aci <- df_aci_all
+df_aci <- rbind(df_aci_c, df_aci_t)
+df_aci <- df_aci
 
+df_aci <- df_aci %>% filter(pw_FWHM == "5")
+df_aci$pw_FWHM <- "local"
 df_aci$groups <- paste0(df_aci$pw_FWHM, "_", df_aci$HRF) # combination of pw_FWHM and HRF to connect the dots
-ggplot(data = df_aci, aes(x = pw_order, y = avgACI, color = pw_FWHM, shape = HRF, group=groups))+
-     geom_point(size = 4) + lims(y = c(1.4,2))  + geom_line() +
-     scale_shape_manual(values=c(16,22)) +
-     labs(title = "Averaged ACI magnitudes comparison with AR model order",
+
+# ggplot(data = df_aci, aes(x = pw_order, y = avgACI, color = pw_FWHM, shape = HRF, group=groups))+
+#      geom_point(size = 4) + lims(y = c(1.4,2))  + geom_line() +
+#      scale_shape_manual(values=c(16,22)) +
+#      labs(title = "Averaged ACI magnitudes comparison with AR model order",
+#           y = "Averaged ACI", x = "AR model order") +
+#      labs(color = "smoothing")  +
+#      theme_bw() +
+#      theme(axis.title = element_text(family = "Courier", size =(15)),
+#            axis.text = element_text(family = "Courier", size =(13)),
+#            legend.title = element_text(family = "Courier", face = "bold",size =(10)),
+#            legend.text = element_text(family = "Courier", size =(9)),
+#            legend.position = "bottom")
+  
+
+ggplot(data = df_aci, aes(x = pw_order, y = avgACI, color = HRF, group=groups))+
+     geom_point(size = 2) + lims(y = c(1.4,2))  + geom_line() +
+     labs(title = "Averaged ACI magnitudes versus AR model order with FWHM = 5",
           y = "Averaged ACI", x = "AR model order") +
      labs(color = "smoothing")  +
      theme_bw() +
@@ -81,65 +104,11 @@ ggplot(data = df_aci, aes(x = pw_order, y = avgACI, color = pw_FWHM, shape = HRF
            legend.title = element_text(family = "Courier", face = "bold",size =(10)),
            legend.text = element_text(family = "Courier", size =(9)),
            legend.position = "bottom")
-  
-ggsave("avgACI4.png")
+
+
+ggsave("avgACI.png")
 
 ```
 
 
-# Average AIC for each task, pw_FWHM, pw_order, HRF
-
-```{r}
-avg_aic <- readRDS(file.path(dir_agg, "aic.rds"))
-avg_aic <- apply(avg_aic, c(1,5,6,7), mean)
-# dim(all_aic) # task 4, pw_FWHM 2, pw_order 4, HRF 2
-
-avg_aic2 <- array(dim=dim(avg_aic) + c(1,0,0,0)) # adding an extra dimension to task
-avg_aic2[seq(4),,,] <- avg_aic # save the calculated avg of ACI for each task from all_aci except the extra dimension
-avg_aic2[5,,,] <- colMeans(avg_aic) # the extra dimension takes values of averaged values all tasks
-dimnames_aic2 <- dimnames(avg_aic) # using the same dimension names with the all_aci
-dimnames_aic2$task <- c(dimnames_aic2$task, "all_task") # needed a name for the extra dimension 
-dimnames(avg_aic2) <- dimnames_aic2
-
-iters <- do.call(expand.grid, dimnames(avg_aic2)) # doing the same thing with the previously written code but shorter
-df_aic <- data.frame(iters)
-df_aic$avgAIC <- c(avg_aic2)
-
-```
-
-
-# Visualize the average AIC 
-```{r}
-require(ggplot2)
-df_aic_all <- df_aic %>% filter(task == "all_task" & pw_FWHM == "5") # pw_order, HRF, avgAIC
-df_aic_all <- df_aic_all[,c(3,4,5)]
-df_aic_all$pw_FWHM <- c("local")
-# df_aic_local <- df_aic_all %>% filter(pw_FWHM == "5")
-# df_aic_local$pw_FWHM <- "local"
-# df_aic_global <- df_aic_all %>% filter(pw_FWHM == "Inf")
-# df_aic_global$pw_FWHM <- "global"
-# df_aic_all <- rbind(df_aic_local, df_aic_global)
-
-df_aic_c <- df_aic_all %>% filter(HRF == "HRF")
-df_aic_c$HRF <- "canonical"
-df_aic_t <- df_aic_all %>% filter(HRF == "dHRF")
-df_aic_t$HRF <- "canonical with its TD"
-df_aic_all <- rbind(df_aic_c, df_aic_t)
-df_aic <- df_aic_all
-
-df_aic$groups <- paste0(df_aic$pw_FWHM, "_", df_aic$HRF) # combination of pw_FWHM and HRF to connect the dots
-ggplot(data = df_aic, aes(x = pw_order, y = avgAIC, color = HRF, group=groups))+
-     geom_point() + lims(y = c(0,3))  + geom_line() +
-     labs(title = "Averaged AIC magnitudes versus AR model orders with FWHM = 5",
-          y = "Averaged AIC", x = "AR model order") +
-     theme_bw() +
-     theme(axis.title = element_text(family = "Courier", size =(15)),
-           axis.text = element_text(family = "Courier", size =(13)),
-           legend.title = element_text(family = "Courier", face = "bold",size =(10)),
-           legend.text = element_text(family = "Courier", size =(9)),
-           legend.position = "bottom")
-
-ggsave("avgAIC.png")
-
-```
 
