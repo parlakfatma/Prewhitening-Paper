@@ -69,7 +69,7 @@ theVars <- list(
   acquisition=c("LR", "RL"), 
   test=c("test", "retest"),
   pw_FWHM=c(5, Inf), 
-  pw_order=c(0, 1, 3, 6),
+  pw_order=c(0, 1, 3, 6, 10),
   HRF=c("HRF", "dHRF"),
   vox=seq(nVox)
 )

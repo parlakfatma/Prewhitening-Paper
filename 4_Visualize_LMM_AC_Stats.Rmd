@@ -1,204 +1,344 @@
 ---
-title: "4_Visualize_LMM_AC_Stats"
+title: "3_visualize_ar6c_FP"
 author: "fatma parlak"
 date: "2/10/2022"
 output: html_document
 ---
 
-
-
 ```{r}
+# dir_project <- "G:/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
 dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
+# dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
 
-dir_agg <- file.path(dir_project, "AC1_agg") # [FP:we are not calling this directory, we could remove this line]
+dir_agg <- file.path(dir_project, "AC1_agg")
 dir_lmm <- file.path(dir_project, "AC1_lmm")
-dir_plots <- file.path(dir_project, "AC1_plots")
+dir_plots <- file.path(dir_project, "plots_lmm")
 
+# wb_path <- "~/../Desktop/fMRI/workbench"
 wb_path <- "~/Desktop/workbench"
-cii_tmp <- "/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
+# wb_path <- "~/Documents/workbench"
 
-# dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper" # Fatma's personal
-# dir_lmm <- file.path(dir_project, "code" ,"AC1_lmm") # Fatma's personal
-# dir_plots <- file.path(dir_project, "code", "AC1_plots") # Fatma's personal
-# wb_path <- "~/Documents/workbench" # Fatma
-# cii_tmp <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper/data/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
+# cii_tmp <- "/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
+cii_tmp <- "data/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
 
-# Setup ---------------------------------------------------------------------------------
+# Setup ------------------------------------------------------------------------
 
 library(ciftiTools)
 stopifnot(packageVersion("ciftiTools") >= "0.8.0")
 ciftiTools.setOption("wb_path", wb_path)
 
-tasks <- c("emotion", "gambling", "language", "motor") # , "relational", "social")
+tasks <- c("emotion", "gambling", "relational", "motor") # , "relational", "social")
 xii0 <- read_cifti(cii_tmp, idx=1, resamp_res = 6000)
 xii0 <- convert_xifti(xii0, "dscalar")
 
-n_fixed <- 9
-n_random <- 8
+n <- list(fixed=9, random=8)
+
+all_meas <- c("aci", "ar6c", "var", "acf1", "ar6v")
+
+pw_FWHM <- c(5, Inf)
+pw_order <- c(0, 1, 3, 6, 10)
+n_pw_order <- length(pw_order)
+my_idx <- c(seq(n_pw_order)*2-1, seq(n_pw_order)*2)
+my_idx2 <- c(seq(n_pw_order-1)*2-1, seq(n_pw_order-1)*2)
 ```
 
+# Average ACI for each task
+
 ```{r}
-# Get experimental conditions.
+all_aci <- readRDS(file.path(dir_agg, "aci.rds"))
+all_aci <- apply(all_aci, c(1,5,6,7,8), mean)
+all_aci[,,,"dHRF",] <- all_aci[,,,"dHRF",] - all_aci[,,,"HRF",]
+
 iters <- expand.grid(
-  pw_order=c(0, 1, 3, 6),
-  pw_FWHM=c(5, Inf), 
-  meas=c( "aci" , "ar6c", "var", "acf1", "ar6v")
+  task=c(tasks, "all"),
+  HRF=c("HRF", "dHRF")
 )
-iters <- subset(iters, meas=="aci")
 
-meas <- "aci" # temp
-iters_names <- paste0(meas, "_pwFWHM-", iters$pw_FWHM, "_pwO-", iters$pw_order)
-iters_names2 <- paste0("FWHM ", iters$pw_FWHM, ", order ", iters$pw_order)
+zlim <- list(
+  HRF = c(1, 2),
+  dHRF = c(-.2, .2)
+)
 
-# Read in all the data.
-dat <- vector("list", length(iters))
 for (ii in seq(nrow(iters))) {
-  pw_FWHM <- iters[ii, "pw_FWHM"]
-  pw_order <- iters[ii, "pw_order"]
-  meas <- iters[ii, "meas"]
+  task <- as.character(iters[ii, "task"])
+  HRF <- as.character(iters[ii, "HRF"])
   
-  q <- readRDS(
-    file.path(dir_lmm, paste0(meas, "_pwFWHM-", pw_FWHM, "_pwO-", pw_order, ".rds"))
-  )
-  names(q)[names(q) == "var_cor"] <- "random_fx" # [TO DO]: fix
-  dat[[ii]] <- q
-}
+  if (task=="all") {
+    aci <- colMeans(all_aci[,,,HRF,])
+  } else {
+    aci <- all_aci[task,,,HRF,]
+  }
+  
+  iters_names2 <- c(outer(
+    paste0("FWHM ", dimnames(aci)[[1]]),
+    paste0(", order ", dimnames(aci)[[2]]),
+    paste0
+  ))
+  iters_names3 <- c(outer(
+    paste0("FWHM-", dimnames(aci)[[1]]),
+    paste0("_order-", dimnames(aci)[[2]]),
+    paste0
+  ))
+  n_pw <- dim(aci)[1]*dim(aci)[2]
+  dim(aci) <- c(n_pw, dim(aci)[3])
+  # dimnames(aci)[[1]] <- iters_names2
 
-# Get coefficient names.
-names_fixed <- colnames(dat[[1]]$fixed_fx)
-names_random <- colnames(dat[[1]]$random_fx)[seq(n_random)]
-```
-
-### Fixed Effects
-
-```{r eval=FALSE}
-# Aggregate fixed effects by coefficient, across experimental conditions.
-dat_fixed <- lapply(dat, function(x){x$fixed_fx})
-dat_fixed2 <- vector("list", n_fixed)
-for (nn in seq(n_fixed)) { 
-  dat_fixed2[[nn]] <- do.call(cbind, lapply(dat_fixed, function(x){ x <- x[,nn] }))
-  colnames(dat_fixed2[[nn]]) <- iters_names2
-}
-names(dat_fixed2) <- names_fixed
-
-# Plot each fixed effect  with free zlim.
-for (nn in seq(n_fixed)) {
-  print(names_fixed[nn])
-  xii_fx <- newdata_xifti(xii0, dat_fixed2[[nn]])
-  xii_fx$meta$cifti$names <- iters_names2
-  out_fname <- file.path(dir_plots, "fixed_fx", "aci", "zlim_free", names_fixed[nn])
+  xii <- newdata_xifti(xii0, t(aci))
+  xii$meta$cifti$names <- iters_names2
+  xii <- select_xifti(xii, c(seq(n_pw/2)*2-1, seq(n_pw/2)*2))
+  
+  # Composite
+  out_fname <- file.path("plots_ACI", "comp", paste0(task, "_", HRF))
   plot(
-    xii_fx, idx=seq(8), 
-    fname=out_fname, 
-    together="idx", 
-    together_title=names_fixed[nn], 
-    title=xii_fx$meta$cifti$names
+    xii, idx=seq(ncol(xii)), fname=out_fname, zlim=zlim[[HRF]],
+    together="idx", together_title=paste0(task, ", ", HRF), together_ncol=n_pw_order,
+    title=xii$meta$cifti$names
   )
-}
-
-# Manually decide the `zlim` values.
-my_zlim_fe <- list(
-  fixed_task = c(1.5, 3.5),
-  fixed_RL = c(-.2, .2),
-  fixed_cHRF = c(-.3, .3),
-  fixed_task_cHRF = c(-.15, .15)
-)
-my_zlim2 <- c(
-  rep(my_zlim_fe[1], 4),
-  my_zlim_fe[2],
-  my_zlim_fe[3],
-  rep(my_zlim_fe[4], 3)
-)
-
-# Plot each fixed effect with the fixed zlim.
-for (nn in seq(n_fixed)) {
-  print(names_fixed[nn])
-  xii_fx <- newdata_xifti(xii0, dat_fixed2[[nn]])
-  xii_fx$meta$cifti$names <- iters_names
-  out_fname <- file.path(dir_plots, "fixed_fx", "aci", "zlim_fix", names_fixed[nn])
+  
+  # Individual
+  out_fname <- file.path(
+    "plots_ACI", "indiv",
+    paste0(task, "_", HRF, "__", iters_names3)
+  )
   plot(
-    xii_fx, idx = seq(8), fname=out_fname, 
-    title=xii_fx$meta$cifti$names, zlim=my_zlim2[[nn]]
+    xii, idx=seq(ncol(xii)), fname=out_fname, zlim=zlim[[HRF]],
+  )
+  out_fname <- file.path(
+    "plots_ACI", "indiv_1quad",
+    paste0(task, "_", HRF, "__", iters_names3)
+  )
+  plot(
+    xii, idx=seq(ncol(xii)), fname=out_fname, zlim=zlim[[HRF]],
+    view="lateral", hemisphere="left"
   )
 }
 ```
 
+# LMM model
 
-# IMPORTANT:  directory structure for RE has changed from random_fx/aci to random_fx/dHRF_task/aci !
-### Random Effects
-#### dHRF: task
-```{r}
-# Aggregate random effects by coefficient, across experimental conditions.
-dat_random <- lapply(dat, function(x){x$random_fx})
-dat_random2 <- vector("list", n_random)
-for (nn in seq(n_random)) { 
-  dat_random2[[nn]] <- do.call(cbind, lapply(dat_random, function(x){ x <- x[,nn] }))
-  colnames(dat_random2[[nn]]) <- iters_names2
-}
-names(dat_random2) <- names_random
-
-# Plot each random effect.
-for (nn in seq(n_random)) {
-  print(names_random[nn])
-  xii_fx <- newdata_xifti(xii0, dat_random2[[nn]])
-  xii_fx$meta$cifti$names <- iters_names2
-  out_fname <- file.path(dir_plots, "random_fx", "aci", "zlim_free", names_random[nn])
-  plot(
-    xii_fx, idx=seq(8), fname=out_fname, 
-    together="idx", together_title=names_random[nn], 
-    title=xii_fx$meta$cifti$names
-  )
-}
-
-# Manually decide the `zlim` values.
-my_zlim_re <- list(
-  random_task = c(0, .4),
-  random_cHRF = c(0, .1),
-  random_task_cHRF = c(0, .15)
-)
-my_zlim2 <- c(
-  rep(my_zlim_re[1], 4),
-  my_zlim_re[2],
-  rep(my_zlim_re[3], 3)
-)
-
-# Plot each random effect with the fixed zlim.
-for (nn in seq(n_random)) {
-  print(names_random[nn])
-  xii_fx <- newdata_xifti(xii0, dat_random2[[nn]])
-  xii_fx$meta$cifti$names <- iters_names
-  out_fname <- file.path(dir_plots, "random_fx", "aci", "zlim_fix", names_random[nn])
-  plot(
-    xii_fx, idx=seq(8), fname=out_fname, 
-    title=xii_fx$meta$cifti$names, zlim=my_zlim2[[nn]]
-  )
-}
-```
-
-#### differences (npw-pw)
+### Auto zlim
 
 ```{r}
-dat_random3 <- lapply(dat_random2, function(x){-(x[,seq(3, 8)] - x[,1])})
-# Plot each random effect with the fixed zlim.
-for (nn in seq(n_random)) {
-  print(names_random[nn])
-  xii_fx <- newdata_xifti(xii0, dat_random3[[nn]])
-  xii_fx$meta$cifti$names <- iters_names[seq(3, 8)]
-  out_fname <- file.path(dir_plots, "random_fx", "aci", "diffs", "zlim_free", names_random[nn])
-  plot(
-    xii_fx, idx=seq(6), fname=out_fname, 
-    together="idx", together_title=names_random[nn], 
-    title=xii_fx$meta$cifti$names
+as_my_xii <- function(dat, my_idx, my_names=iters_names2){
+  xii <- newdata_xifti(xii0, dat)
+  xii$meta$cifti$names <- my_names
+  xii <- select_xifti(xii, my_idx)
+  xii
+}
+
+for (meas in all_meas) {
+  cat("Measure: ", meas, " ~~~~~~~~~~~~~~~~~~~~\n")
+  cat("Reading in data.\n")
+  
+  if (meas != "aci") {next}
+  
+  # Get iters.
+  iters <- expand.grid(
+    pw_FWHM=pw_FWHM, 
+    pw_order=pw_order
   )
-  out_fname <- file.path(dir_plots, "random_fx", "aci", "diffs", "zlim_fix", names_random[nn])
-  plot(
-    xii_fx, idx=seq(6), fname=out_fname,
-    title=xii_fx$meta$cifti$names, zlim=my_zlim2[[nn]]
+  iters_names <- paste0(meas, "_pwFWHM-", iters$pw_FWHM, "_pwO-", iters$pw_order)
+  iters_names2 <- paste0("FWHM ", iters$pw_FWHM, ", order ", iters$pw_order)
+  iters_names3 <- paste0("Diff ", iters_names2[seq(3, length(iters_names2))])
+
+  # Read in the data.
+  dat <- vector("list", length(iters))
+  for (ii in seq(nrow(iters))) {
+    dat[[ii]] <- readRDS(file.path(dir_lmm, paste0(
+      meas, "_pwFWHM-", iters[ii, "pw_FWHM"], 
+      "_pwO-", iters[ii, "pw_order"], ".rds"
+    )))
+  }
+
+  # Get coefficient names.
+  names <- list(
+    fixed = colnames(dat[[1]]$fixed_fx),
+    random = colnames(dat[[1]]$random_fx)[seq(n$random)]
   )
+
+  for (what in c("fixed", "random")) {
+    cat(what, " effects.\n")
+    # Subset the data.
+    wdat <- lapply(dat, function(x){x[[paste0(what, "_fx")]]})
+    wdat2 <- vector("list", n[[what]])
+    for (nn in seq(n[[what]])) { 
+      wdat2[[nn]] <- do.call(cbind, lapply(wdat, function(x){ x <- x[,nn] }))
+      colnames(wdat2[[nn]]) <- iters_names2
+    }
+    names(wdat2) <- names[[what]]
+    wdat3 <- lapply(wdat2, function(x){-(x[,seq(3, ncol(x))] - x[,1])})
+
+    # Plot.
+    for (nn in seq(n[[what]])) {
+      print(names[[what]][nn])
+      xii <- as_my_xii(wdat2[[nn]], my_idx)
+      out_fname <- file.path(
+        dir_plots, meas, what, 
+        "zlim_auto", "comp", names[[what]][nn]
+      )
+      plot(
+        xii, idx=seq(ncol(xii)), fname=out_fname,
+        together="idx", together_title=names[[what]][nn], together_ncol=n_pw_order,
+        title=xii$meta$cifti$names
+      )
+      
+      if (what == "random") {
+        # Differences of random effects
+        xii <- as_my_xii(wdat3[[nn]], my_idx2, iters_names3)
+        out_fname <- file.path(
+          dir_plots, meas, what, 
+          "zlim_auto", "comp_diff", names[[what]][nn]
+        )
+        plot(
+          xii, idx=seq(ncol(xii)), fname=out_fname, 
+          together="idx", together_title=names[[what]][nn], together_ncol=n_pw_order-1,
+          title=xii$meta$cifti$names
+        )
+      }
+    }
+    cat("\n")
+  }
+  cat("\n\n")
 }
 ```
 
+### Manually select the zlims
 
-### Random Effects
-#### task
-#### differences (npw-pw)
+```{r}
+# Manually decide the `zlim` values.
+my_zlim <- list(
+  aci = list(
+    fixed = list(
+      task = c(1, 3),
+      RL = c(-.2, .2),
+      task_dHRF = c(-.3, .3)
+    ),
+    random = list(
+      task = c(0, .5),
+      task_dHRF = c(0, .15)
+    ),
+    random_diff = list(
+      task = c(-.5, .5),
+      task_dHRF = c(-.15, .15)
+    )
+  )
+)
+
+my_zlim2 <- lapply(my_zlim, function(x){
+  list(
+    fixed = c(
+      rep(x$fixed[1], 4),
+      x$fixed[2],
+      rep(x$fixed[3], 4)
+    ),
+    random = c(
+      rep(x$random[1], 4),
+      rep(x$random[2], 4)
+    ),
+    random_diff = c(
+      rep(x$random_diff[1], 4),
+      rep(x$random_diff[2], 4)
+    )
+  )
+})
+```
+
+### Re-run with manual zlims
+
+```{r}
+for (meas in all_meas) {
+  cat("Measure: ", meas, " ~~~~~~~~~~~~~~~~~~~~\n")
+  cat("Reading in data.\n")
+  
+  if (meas != "aci") {next}
+  
+  # Get iters.
+  iters <- expand.grid(
+    pw_FWHM=pw_FWHM, 
+    pw_order=pw_order
+  )
+  iters_names <- paste0(meas, "_pwFWHM-", iters$pw_FWHM, "_pwO-", iters$pw_order)
+  iters_names2 <- paste0("FWHM ", iters$pw_FWHM, ", order ", iters$pw_order)
+  iters_names3 <- paste0("Diff ", iters_names2[seq(3,length(iters_names2))])
+
+  # Read in the data.
+  dat <- vector("list", length(iters))
+  for (ii in seq(nrow(iters))) {
+    dat[[ii]] <- readRDS(file.path(dir_lmm, paste0(
+      meas, "_pwFWHM-", iters[ii, "pw_FWHM"], 
+      "_pwO-", iters[ii, "pw_order"], ".rds"
+    )))
+  }
+
+  # Get coefficient names.
+  names <- list(
+    fixed = colnames(dat[[1]]$fixed_fx),
+    random = colnames(dat[[1]]$random_fx)[seq(n$random)]
+  )
+
+  for (what in c("fixed", "random")) {
+    cat(what, " effects.\n")
+    # Subset the data.
+    wdat <- lapply(dat, function(x){x[[paste0(what, "_fx")]]})
+    wdat2 <- vector("list", n[[what]])
+    for (nn in seq(n[[what]])) { 
+      wdat2[[nn]] <- do.call(cbind, lapply(wdat, function(x){ x <- x[,nn] }))
+      colnames(wdat2[[nn]]) <- iters_names2
+    }
+    names(wdat2) <- names[[what]]
+    wdat3 <- lapply(wdat2, function(x){-(x[,seq(3, ncol(x))] - x[,1])})
+
+    # Plot.
+    for (nn in seq(n[[what]])) {
+      print(names[[what]][nn])
+      xii <- as_my_xii(wdat2[[nn]], my_idx)
+      # # Composite
+      # out_fname <- file.path(
+      #   dir_plots, meas, what,
+      #   "zlim_set", "comp", names[[what]][nn]
+      # )
+      # plot(
+      #   xii, idx=seq(ncol(xii)), fname=out_fname,
+      #   zlim=my_zlim2[[meas]][[what]][[nn]],
+      #   together="idx", together_title=names[[what]][nn], together_ncol=n_pw_order,
+      #   title=xii$meta$cifti$names
+      # )
+      # # Individual
+      # out_fname <- file.path(
+      #   dir_plots, meas, what,
+      #   "zlim_set", "indiv", names[[what]][nn]
+      # )
+      # plot(
+      #   xii, idx=seq(ncol(xii)), fname=out_fname,
+      #   zlim=my_zlim2[[meas]][[what]][[nn]]
+      # )
+      
+      if (what == "random") {
+        # Differences of random effects
+        xii <- as_my_xii(wdat3[[nn]], my_idx2, iters_names3)
+        out_fname <- file.path(
+          dir_plots, meas, what, 
+          "zlim_set", "comp_diff", names[[what]][nn]
+        )
+        plot(
+          xii, idx=seq(ncol(xii)), fname=out_fname, 
+          zlim=my_zlim2[[meas]][["random_diff"]][[nn]],
+          together="idx", together_title=names[[what]][nn], together_ncol=n_pw_order-1,
+          title=xii$meta$cifti$names
+        )
+        # Individual
+        out_fname <- file.path(
+          dir_plots, meas, what, 
+          "zlim_set", "indiv_diff", names[[what]][nn]
+        )
+        plot(
+          xii, idx=seq(ncol(xii)), fname=out_fname, 
+          zlim=my_zlim2[[meas]][["random_diff"]][[nn]]
+        )
+      }
+    }
+    cat("\n")
+  }
+  cat("\n\n")
+}
+```

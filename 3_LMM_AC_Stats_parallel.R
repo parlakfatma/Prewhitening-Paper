@@ -62,14 +62,15 @@ nVox <- 10578
 ## ------------------------------------------------------------------------------------------------------------------------------------
 iters <- expand.grid(
   pw_FWHM=c(5, Inf),
-  pw_order=c(0, 1, 3, 6),
+  pw_order=c(0, 1, 3, 6, 10),
   meas=c( "aci", "ar6c", "var", "acf1", "ar6v")
 )
 
+iters <- subset(iters, meas=="aci")
+
 time <- Sys.time()
 
-#for (ii in rev(seq(nrow(iters)))) {
-for (ii in seq(8, 1)) {
+for (ii in seq(nrow(iters))) {
 
   # Prep ------------------------------------------------------------------------------
   # Get iteration info.
@@ -87,12 +88,12 @@ for (ii in seq(8, 1)) {
   # 9 rows for string the Fixed Effects (E, G, M, R, RL, E:dHRF, G:dHRF, M:dHRF, R:dHRF)
   fixed_fx <- array(NA, dim= c(nVox, 9))
   # 37 rows for storing Random Effect's std. dev.
-    # RE of dHRF: task & task = 36 [(8*9)/2 for diaogonal & its lower triangular]
-    # RE's residual = 1
-  var_cor <- array(NA, dim = c(nVox, 37))
+  # RE of dHRF: task & task = 36 [(8*9)/2 for diaogonal & its lower triangular]
+  # RE's residual = 1
+  random_fx <- array(NA, dim = c(nVox, 37))
 
   cores <- parallel::detectCores()
-  nCores <- cores[1] - 8
+  nCores <- cores[1] - 20
   cluster <- parallel::makeCluster(nCores, outfile="")
   doParallel::registerDoParallel(cluster)
 
@@ -102,11 +103,11 @@ for (ii in seq(8, 1)) {
   df_vv$dHRF <- (df_vv$HRF=="dHRF")
   q <- lme4::lmer(value ~ -1 + task + acquisition + dHRF:task  + (-1 + task + dHRF:task | subject), data = df_vv)
   fixed_fx[vv,] <- c(lme4::fixef(q))
-  var_cor[vv,] <- c((as.data.frame(lme4::VarCorr(q))$sdcor))
+  random_fx[vv,] <- c((as.data.frame(lme4::VarCorr(q))$sdcor))
   colnames(fixed_fx) <- names(lme4::fixef(q))
-  colnames(var_cor) <- apply(as.data.frame(lme4::VarCorr(q))[,seq(3)], 1, paste, collapse="-")
+  colnames(random_fx) <- apply(as.data.frame(lme4::VarCorr(q))[,seq(3)], 1, paste, collapse="-")
 
-  merge_vox <- function(x){list(fixed_fx=do.call(rbind, lapply(x, `[[`, "fixed_fx")), var_cor=rbind(lapply(x, `[[`, "var_cor")))}
+  merge_vox <- function(x){list(fixed_fx=do.call(rbind, lapply(x, `[[`, "fixed_fx")), random_fx=rbind(lapply(x, `[[`, "random_fx")))}
   q <- foreach::foreach(vv = seq(2, nVox)) %dopar% {
     if (vv %% 100 == 0) { print(vv) }
     dat_vv <- dat[,,,,,vv]
@@ -115,12 +116,12 @@ for (ii in seq(8, 1)) {
     q <- lme4::lmer(value ~ -1 + task + acquisition + dHRF:task  + (-1 + task + dHRF:task | subject), data = df_vv)
     list(
       fixed_fx=(lme4::fixef(q)),
-      var_cor=c((as.data.frame(lme4::VarCorr(q))$sdcor))
+      random_fx=c((as.data.frame(lme4::VarCorr(q))$sdcor))
     )
   }
   fixed_fx[seq(2, nVox),] <- do.call(rbind, lapply(q, `[[`, "fixed_fx"))
-  var_cor[seq(2, nVox),] <- do.call(rbind, lapply(q, `[[`, "var_cor"))
-  saveRDS(list(fixed_fx = fixed_fx, var_cor = var_cor), out_fname)
+  random_fx[seq(2, nVox),] <- do.call(rbind, lapply(q, `[[`, "random_fx"))
+  saveRDS(list(fixed_fx = fixed_fx, random_fx = random_fx), out_fname)
 
   stopCluster(cluster)
 
