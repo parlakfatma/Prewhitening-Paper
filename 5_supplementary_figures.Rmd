@@ -1,0 +1,108 @@
+---
+title: "Mandy's figures"
+output: html_document
+---
+
+```{r}
+# dir_project <- "G:/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper"
+dir_project <- "/Volumes/GoogleDrive/.shortcut-targets-by-id/1-9kU5O4-bU0AeEZKukSvz4jbvolppJGG/ddpham/Prewhitening-Paper/results_pre_June_9"
+
+dir_agg <- file.path(dir_project, "AC1_agg")
+dir_lmm <- file.path(dir_project, "AC1_lmm")
+dir_plots <- file.path(dir_project, "plots_lmm")
+
+# wb_path <- "~/../Desktop/fMRI/workbench"
+wb_path <- "~/Desktop/workbench"
+# wb_path <- "~/Documents/workbench"
+
+# cii_tmp <- "/Volumes/Lab_Data_Drive/data/HCP_GAMBLING/103818/MNINonLinear/Results/tfMRI_GAMBLING_LR/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
+cii_tmp <- "data/tfMRI_GAMBLING_LR_Atlas.dtseries.nii"
+
+# Setup ------------------------------------------------------------------------
+
+library(ciftiTools)
+stopifnot(packageVersion("ciftiTools") >= "0.8.0")
+ciftiTools.setOption("wb_path", wb_path)
+
+tasks <- c("emotion", "gambling", "relational", "motor") # , "relational", "social")
+xii0 <- read_cifti(cii_tmp, idx=1, resamp_res = 6000)
+xii0 <- convert_xifti(xii0, "dscalar")
+
+n <- list(fixed=9, random=8)
+
+all_meas <- c("aci", "ar6c", "var", "acf1", "ar6v")
+
+pw_FWHM <- c(5, Inf)
+pw_order <- c(0, 1, 3, 6, 10)
+n_pw_order <- length(pw_order)
+my_idx <- c(seq(n_pw_order)*2-1, seq(n_pw_order)*2)
+my_idx2 <- c(seq(n_pw_order-1)*2-1, seq(n_pw_order-1)*2)
+```
+
+# Figure 6(a)
+
+## exctracting the averaged ACI
+
+```{r}
+# Fatma's directories, comment out if you were using Mac Pro
+dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
+dir_agg <- file.path(dir_project, "code", "AC1_agg") 
+dir_plots <- file.path(dir_project, "code", "plots_avgACI")
+
+
+all_aci <- readRDS(file.path(dir_agg, "aci.rds")) #a 8-dim array [task, subj, acq, ses, FWHM, pw, HRF, v]
+avg_aci <- apply(all_aci, c(5,6,7), mean) #average across task/subjects/runs/sessions/voxels
+avg_aci_dHRF <- avg_aci[,,"dHRF"] #choose dHRF case only
+saveRDS(avg_aci_dHRF, file.path(dir_agg, "aci_avg.rds"))#save out data for barplots
+```
+
+## borplots
+```{r}
+dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
+dir_agg <- file.path(dir_project, "code", "AC1_agg") 
+dir_plots <- file.path(dir_project, "code", "plots_avgACI")
+
+aci_avg <- readRDS(file.path(dir_agg, "aci_avg.rds"))
+
+
+dimnames(aci_avg)$pw_order <- as.factor(c("nopw", "AR(1)", "AR(3)", "AR(6)", "var"))
+dimnames(aci_avg)$pw_FWHM <- as.factor(c("local", "global"))
+
+
+iters <- do.call(expand.grid, dimnames(aci_avg))
+df_aci <- data.frame(iters) 
+
+library(ggplot2)
+df_aci$avg_aci <- c(aci_avg) # combining avg ACI
+
+require(dplyr)
+
+df_pw <- df_aci %>% filter(pw_order != "nopw")
+no_pw <- (df_aci %>% filter(pw_order == "nopw"))$avg_aci[1]
+df_pw$avg_aci[df_pw$pw_FWHM == "global" & df_pw$pw_order == "var"] <- c(0)
+
+ggplot(data=df_pw, aes(x=pw_order, y=avg_aci, fill=pw_FWHM)) +
+  coord_cartesian(ylim=c(1,2)) +
+  # scale_y_continuous(limits = c(0,2)) +
+  # geom_bar(stat = "identity", position="dodge") +
+  geom_col(width = 0.5, position = position_dodge(0.5)) +
+  geom_hline(yintercept=no_pw, linetype="dashed", color = "black")+
+  geom_text(aes(4, 1.82, label = "no prewhitening", vjust = -1) , col = "black", family = "Courier") +
+  ggtitle("Averaged ACI across tasks, subjects, acquisiton, session and voxels") + 
+  labs(x = "prewhitening order", y = "averaged ACI") +
+  guides(fill=guide_legend(title="smoothing")) +
+  theme(
+  plot.title = element_text(family = "Courier", face = "bold", size = (10)),
+  legend.title = element_text(family = "Courier", size = (8)),
+  legend.text = element_text( family = "Courier", size = (8)),
+  axis.title = element_text(family = "Courier", size = (8)),
+  axis.text = element_text(family = "Courier", size = (8))) +
+  theme_bw()
+
+
+```
+
+
+
+
+
