@@ -83,21 +83,19 @@ df_pw$avg_aci[df_pw$pw_FWHM == "global" & df_pw$pw_order == "var"] <- c(0)
 
 
 ggplot(data=df_pw, aes(x=pw_order, y=avg_aci, fill=pw_FWHM)) +
-  coord_cartesian(ylim=c(1,2)) +
-  # scale_y_continuous(limits = c(0,2)) +
-  # scale_y_continuous(limits = c(1,2), expand = c(0, 0)) +
-  scale_x_discrete(expand = c(0,0)) + 
-  scale_y_continuous(expand = c(0,0)) +
+  coord_cartesian(ylim=c(1,2)) + # to range y-values from 1 to 2
+  # scale_x_discrete(expand = c(0,0)) + # to remove the padding on x-axis
+  scale_y_continuous(expand = c(0,0)) + # to remove the padding on 
   # geom_bar(stat = "identity", position="dodge") +
   geom_col(width = 0.5, position = position_dodge(0.5)) +
   geom_hline(yintercept=no_pw, linetype="dashed", color = "black")+
   geom_text(aes(3.5, 1.82, label = "no prewhitening", vjust = -1) , col = "black", family = "Courier") +
-  ggtitle("Averaged ACI across tasks, subjects, acquisiton, session and voxels") + 
+  ggtitle("Averaged ACI across tasks, subjects, acquisitons, sessions and voxels") + 
   labs(x = "prewhitening order", y = "averaged ACI") +
   guides(fill=guide_legend(title="smoothing")) +
   theme_bw() +
   theme(
-  plot.title = element_text(family = "Courier", face = "bold", size = (10)),
+  plot.title = element_text(family = "Courier", face = "bold", size = (9.75)),
   legend.title = element_text(family = "Courier", size = (8)),
   legend.text = element_text( family = "Courier", size = (8)),
   axis.title = element_text(family = "Courier", size = (8)),
