@@ -1,0 +1,201 @@
+---
+title: "scatter_plots_avgACI"
+author: "fatma parlak"
+date: "2/10/2022"
+output: html_document
+---
+
+```{r}
+dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
+dir_lmm <- file.path(dir_project, "code", "AC1_lmm") 
+dir_plots <- file.path(dir_project, "code", "plots_avgACI")
+# Setup ---------------------------------------------------------------------------------
+library(ggplot2)
+library(dplyr)
+library
+library(reshape2)
+```
+
+# Average ACI for each task, pw_FWHM, pw_order, HRF
+
+```{r}
+iters <- expand.grid(
+  pw_FWHM=c(5, Inf),
+  pw_order=c(0, 1, 3, 6, 10),
+  meas=c( "aci")
+)
+
+iters <- subset(iters, pw_FWHM=="Inf")
+
+
+corr_id <- expand.grid(
+  t1 <- c("E", "G", "M", "R", "EdHRF", "GdHRF", "MdHRF", "RdHRF"),
+  t2 <- c("E", "G", "M", "R","EdHRF", "GdHRF", "MdHRF", "RdHRF")
+)
+corr_id$t3 <- paste0(corr_id$Var1, corr_id$Var2)
+corr_id <- matrix(corr_id$t3, 8,8)
+
+avg_corr_RE_iters <- list()
+iters_id <- list()
+
+for (ii in seq(nrow(iters))) {
+
+  # Prep ------------------------------------------------------------------------------
+  # Get iteration info.
+  pw_FWHM <- iters[ii, "pw_FWHM"]
+  pw_order <- iters[ii, "pw_order"]
+  meas <- iters[ii, "meas"]
+  out_fname <- file.path(dir_lmm, paste0(meas, "_pwFWHM-", pw_FWHM, "_pwO-", pw_order, ".rds"))
+  
+  aci_ii <- readRDS(out_fname)
+  RE_ii <- aci_ii[["random_fx"]]
+  # colSums(is.na(RE_ii)) # to see how many NAs we have and their locations! WE decided to exclude them!
+  avg_corr_RE <- round(apply(RE_ii[,9:36],2, mean, na.rm = TRUE), digits = 2)
+  # colnames(RE_ii)[9:36]
+  corr_id[lower.tri(corr_id)] <- avg_corr_RE
+  
+  rm(aci_ii) ; rm(RE_ii)
+  cat(ii, "\t")
+  
+  avg_corr_RE_iters[[ii]] <- corr_id
+  iters_id[[ii]] <- paste0(pw_FWHM, pw_order)
+}
+
+can_corr_RE <- list()
+TD_corr_RE <- list()
+melted_can_corr_RE <- data.frame()
+# selecting canHRF and TDHRF correlations from RE
+for(i in seq(length(avg_corr_RE_iters))){
+  can_corr_RE[[i]] <- avg_corr_RE_iters[[i]][1:4, 1:4]
+  diag(can_corr_RE[[i]]) <- c(1)
+  can_corr_RE[[i]][upper.tri((can_corr_RE[[i]]))] <- NA
+  rownames(can_corr_RE[[i]]) <- c("E", "G", "M", "R")
+  colnames(can_corr_RE[[i]]) <- c("E", "G", "M", "R")
+  melted_i <- melt(can_corr_RE[[i]], na.rm = TRUE)
+  melted_i$AR <-  c(rep(iters_id[[i]], 10))
+  melted_i$value <- as.numeric(melted_i$value)
+  if(i == 1){
+    melted_can_corr_RE <- melted_i}
+  else {melted_can_corr_RE <- rbind(melted_can_corr_RE, melted_i)
+  }
+  
+  TD_corr_RE[[i]] <- avg_corr_RE_iters[[i]][5:8, 5:8]
+  diag(TD_corr_RE[[i]]) <- c(1)
+  TD_corr_RE[[i]][upper.tri((TD_corr_RE[[i]]))] <- NA
+  rownames(TD_corr_RE[[i]]) <- c("EdHRF", "GdHRF", "MdHRF", "RdHRF")
+  colnames(TD_corr_RE[[i]]) <- c("EdHRF", "GdHRF", "MdHRF", "RdHRF")  
+  
+}
+
+# to draw correlation matrices
+ggplot(data = melted_can_corr_RE, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation") +
+  # facet_grid(. ~ AR) +
+  # theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+
+ coord_fixed() 
+
+
+ggplot(data = melted_can_corr_RE, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() + facet_wrap(~ AR, ncol=2)+ 
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 2) +
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  legend.justification = c(1, 0),
+  legend.position = c(0.6, 0.7),
+  legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                title.position = "top", title.hjust = 0.5))
+
+
+
+ggheatmap <- ggplot(melted_can_corr_RE, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+ facet_wrap(~ AR, ncol=5)+  
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+    name="Pearson\nCorrelation") +
+  theme_minimal()+ # minimal theme
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1), 
+    legend.position="none")+
+ coord_fixed()
+
+print(ggheatmap)
+
+ggheatmap + 
+geom_text(aes(Var2, Var1, label = value), color = "black", size = 3)
+
+```
+
+
+# Visualize the average ACI 
+```{r}
+require(ggplot2)
+# df_aci_all <- df_aci %>% filter(task == "all_task")
+
+# df_aci_local <- df_aci_all %>% filter(pw_FWHM == "5")
+# df_aci_local$pw_FWHM <- "local"
+# df_aci_global <- df_aci_all %>% filter(pw_FWHM == "Inf")
+# df_aci_global$pw_FWHM <- "global"
+# df_aci_all <- rbind(df_aci_local, df_aci_global)
+
+# df_aci_c <- df_aci_all %>% filter(HRF == "HRF")
+# df_aci_c$HRF <- "canonical"
+# df_aci_t <- df_aci_all %>% filter(HRF == "dHRF")
+# df_aci_t$HRF <- "canonical with its TD"
+# df_aci_all <- rbind(df_aci_c, df_aci_t)
+# df_aci <- df_aci_all
+
+df_aci_c <- df_aci %>% filter(HRF == "HRF")
+df_aci_c$HRF <- "canonical"
+df_aci_t <- df_aci %>% filter(HRF == "dHRF")
+df_aci_t$HRF <- "canonical with its TD"
+df_aci <- rbind(df_aci_c, df_aci_t)
+df_aci <- df_aci
+
+df_aci <- df_aci %>% filter(pw_FWHM == "5")
+df_aci$pw_FWHM <- "local"
+df_aci$groups <- paste0(df_aci$pw_FWHM, "_", df_aci$HRF) # combination of pw_FWHM and HRF to connect the dots
+
+# ggplot(data = df_aci, aes(x = pw_order, y = avgACI, color = pw_FWHM, shape = HRF, group=groups))+
+#      geom_point(size = 4) + lims(y = c(1.4,2))  + geom_line() +
+#      scale_shape_manual(values=c(16,22)) +
+#      labs(title = "Averaged ACI magnitudes comparison with AR model order",
+#           y = "Averaged ACI", x = "AR model order") +
+#      labs(color = "smoothing")  +
+#      theme_bw() +
+#      theme(axis.title = element_text(family = "Courier", size =(15)),
+#            axis.text = element_text(family = "Courier", size =(13)),
+#            legend.title = element_text(family = "Courier", face = "bold",size =(10)),
+#            legend.text = element_text(family = "Courier", size =(9)),
+#            legend.position = "bottom")
+  
+
+ggplot(data = df_aci, aes(x = pw_order, y = avgACI, color = HRF, group=groups))+
+     geom_point(size = 2) + lims(y = c(1.4,2))  + geom_line() +
+     labs(title = "Averaged ACI magnitudes versus AR model order with FWHM = 5",
+          y = "Averaged ACI", x = "AR model order") +
+     labs(color = "smoothing")  +
+     theme_bw() +
+     theme(axis.title = element_text(family = "Courier", size =(15)),
+           axis.text = element_text(family = "Courier", size =(13)),
+           legend.title = element_text(family = "Courier", face = "bold",size =(10)),
+           legend.text = element_text(family = "Courier", size =(9)),
+           legend.position = "bottom")
+
+
+ggsave("avgACI.png")
+
+```
+
+
+
