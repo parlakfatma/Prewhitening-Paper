@@ -6,13 +6,12 @@ output: html_document
 ---
 
 ```{r}
-dir_project <- "/Volumes/GoogleDrive/My Drive/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
+dir_project <- "~/Library/CloudStorage/OneDrive-IndianaUniversity/MEJIA_LAB_Fatma/Projects/Prewhitening_Paper"
 dir_lmm <- file.path(dir_project, "code", "AC1_lmm") 
 dir_plots <- file.path(dir_project, "code", "plots_avgACI")
 # Setup ---------------------------------------------------------------------------------
 library(ggplot2)
 library(dplyr)
-library
 library(reshape2)
 ```
 
@@ -25,7 +24,7 @@ iters <- expand.grid(
   meas=c( "aci")
 )
 
-iters <- subset(iters, pw_FWHM=="Inf")
+iters <- subset(iters, pw_order=="0")
 
 
 corr_id <- expand.grid(
@@ -58,50 +57,67 @@ for (ii in seq(nrow(iters))) {
   cat(ii, "\t")
   
   avg_corr_RE_iters[[ii]] <- corr_id
-  iters_id[[ii]] <- paste0(pw_FWHM, pw_order)
+  iters_id[[ii]] <- paste0(pw_FWHM,"_", pw_order)
 }
 
-can_corr_RE <- list()
-TD_corr_RE <- list()
-melted_can_corr_RE <- data.frame()
+# can_corr_RE <- list()
+# TD_corr_RE <- list()
+# melted_can_corr_RE <- data.frame()
+avg_corr_RE <- list()
+melted_corr_RE <- data.frame()
+
 # selecting canHRF and TDHRF correlations from RE
 for(i in seq(length(avg_corr_RE_iters))){
-  can_corr_RE[[i]] <- avg_corr_RE_iters[[i]][1:4, 1:4]
-  diag(can_corr_RE[[i]]) <- c(1)
-  can_corr_RE[[i]][upper.tri((can_corr_RE[[i]]))] <- NA
-  rownames(can_corr_RE[[i]]) <- c("E", "G", "M", "R")
-  colnames(can_corr_RE[[i]]) <- c("E", "G", "M", "R")
-  melted_i <- melt(can_corr_RE[[i]], na.rm = TRUE)
-  melted_i$AR <-  c(rep(iters_id[[i]], 10))
-  melted_i$value <- as.numeric(melted_i$value)
-  if(i == 1){
-    melted_can_corr_RE <- melted_i}
-  else {melted_can_corr_RE <- rbind(melted_can_corr_RE, melted_i)
-  }
+  # can_corr_RE[[i]] <- avg_corr_RE_iters[[i]][1:4, 1:4]
+  # can_corr_RE[[i]] <- avg_corr_RE_iters[[i]][1:4, 1:4]
+  # diag(can_corr_RE[[i]]) <- c(1)
+  avg_corr_RE[[i]] <- avg_corr_RE_iters[[i]]
+  diag(avg_corr_RE[[i]]) <- c(1)
+  # can_corr_RE[[i]][upper.tri((can_corr_RE[[i]]))] <- NA
+  avg_corr_RE[[i]][upper.tri((avg_corr_RE[[i]]))] <- NA
+  # rownames(can_corr_RE[[i]]) <- c("E", "G", "M", "R")
+  # colnames(can_corr_RE[[i]]) <- c("E", "G", "M", "R")
+  rownames(avg_corr_RE[[i]]) <- c("E", "G", "M", "R", "EdHRF", "GdHRF", "MdHRF", "RdHRF")
+  colnames(avg_corr_RE[[i]]) <- c("E", "G", "M", "R", "EdHRF", "GdHRF", "MdHRF", "RdHRF")
   
-  TD_corr_RE[[i]] <- avg_corr_RE_iters[[i]][5:8, 5:8]
-  diag(TD_corr_RE[[i]]) <- c(1)
-  TD_corr_RE[[i]][upper.tri((TD_corr_RE[[i]]))] <- NA
-  rownames(TD_corr_RE[[i]]) <- c("EdHRF", "GdHRF", "MdHRF", "RdHRF")
-  colnames(TD_corr_RE[[i]]) <- c("EdHRF", "GdHRF", "MdHRF", "RdHRF")  
+  # melted_i <- melt(can_corr_RE[[i]], na.rm = TRUE)
+  # melted_i$AR <-  c(rep(iters_id[[i]], 10))
+  # melted_i$value <- as.numeric(melted_i$value)
+  melted_RE <- melt(avg_corr_RE[[i]], na.rm = TRUE)
+  melted_RE$AR <-  c(rep(iters_id[[i]], 36))
+  melted_RE$value <- as.numeric(melted_RE$value)
+  # if(i == 1){
+  #   melted_can_corr_RE <- melted_i}
+  # else {melted_can_corr_RE <- rbind(melted_can_corr_RE, melted_i)
+  # }
+  if(i == 1){
+    melted_corr_RE <- melted_RE}
+  else {melted_corr_RE <- rbind(melted_corr_RE, melted_RE)
+  }
+  # TD_corr_RE[[i]] <- avg_corr_RE_iters[[i]][5:8, 5:8]
+  # diag(TD_corr_RE[[i]]) <- c(1)
+  # TD_corr_RE[[i]][upper.tri((TD_corr_RE[[i]]))] <- NA
+  # rownames(TD_corr_RE[[i]]) <- c("EdHRF", "GdHRF", "MdHRF", "RdHRF")
+  # colnames(TD_corr_RE[[i]]) <- c("EdHRF", "GdHRF", "MdHRF", "RdHRF")  
   
 }
 
+melted_corr_RE <- subset(melted_corr_RE, AR=="5_0")
 # to draw correlation matrices
-ggplot(data = melted_can_corr_RE, aes(Var2, Var1, fill = value))+
+ggplot(data = melted_corr_RE, aes(Var2, Var1, fill = value))+
  geom_tile(color = "white")+
  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
    midpoint = 0, limit = c(-1,1), space = "Lab", 
    name="Pearson\nCorrelation") +
   # facet_grid(. ~ AR) +
-  # theme_minimal()+ 
+ theme_minimal()+ 
  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
     size = 12, hjust = 1))+
  coord_fixed() 
 
 
-ggplot(data = melted_can_corr_RE, aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile() + facet_wrap(~ AR, ncol=2)+ 
+ggplot(data = melted_corr_RE, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() + # facet_wrap(~ AR, ncol=2)+ 
   geom_text(aes(Var2, Var1, label = value), color = "black", size = 2) +
   theme(
   axis.title.x = element_blank(),
@@ -118,8 +134,8 @@ ggplot(data = melted_can_corr_RE, aes(x=Var1, y=Var2, fill=value)) +
 
 
 
-ggheatmap <- ggplot(melted_can_corr_RE, aes(Var2, Var1, fill = value))+
- geom_tile(color = "white")+ facet_wrap(~ AR, ncol=5)+  
+ggheatmap <- ggplot(melted_corr_RE, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+ # facet_wrap(~ AR, ncol=5)+  
  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
    midpoint = 0, limit = c(-1,1), space = "Lab", 
     name="Pearson\nCorrelation") +
